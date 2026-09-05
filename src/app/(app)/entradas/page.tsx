@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/auth/session';
 import { loadBankrollContext, loadBankrollState } from '@/lib/services/context';
 import { selectableMembers } from '@/lib/services/entries.service';
 import { listAllEntries, listDistinctValues } from '@/lib/repos/entries';
+import { listMatchOptions } from '@/lib/services/entries.service';
 import { findClosing } from '@/lib/repos/closings';
 import { canCreateEntry, canOverrideRisk } from '@/lib/auth/permissions';
 import { resolvePeriod } from '@/lib/period';
@@ -31,12 +32,13 @@ export default async function EntriesPage({
   const period = resolvePeriod(params, context.today);
   const range = monthRange(period.year, period.month);
 
-  const [entries, state, members, distinct, closing] = await Promise.all([
+  const [entries, state, members, distinct, closing, matches] = await Promise.all([
     listAllEntries(context.bankroll.id, { dateFrom: range.start, dateTo: range.end }),
     loadBankrollState(context.bankroll.id, context.settings, period.year, period.month),
     selectableMembers(user).catch(() => []),
     listDistinctValues(context.bankroll.id),
     findClosing(context.bankroll.id, period.year, period.month),
+    listMatchOptions(context.bankroll.timezone),
   ]);
 
   const summary = summarizeEntries(entries);
@@ -105,8 +107,8 @@ export default async function EntriesPage({
             maxStakeCents={state.limits.maxStakeCents}
             today={context.today}
             now={timeNowIn(context.bankroll.timezone)}
-            sports={distinct.sports}
             markets={distinct.markets}
+            matches={matches}
           />
         </div>
       </Card>

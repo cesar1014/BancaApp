@@ -4,7 +4,7 @@ import { computeEntryResult, isSettled } from '@/lib/domain/entry';
 import { evaluateEntryRisk, type RiskEvaluation } from '@/lib/domain/risk';
 import { AppError, forbidden, notFound, periodClosed, validation } from '@/lib/errors';
 import { canCreateEntry, canDeleteEntry, canEditEntry, canOverrideRisk } from '@/lib/auth/permissions';
-import { getSettings } from '@/lib/repos/bankroll';
+import { getBankroll, getSettings } from '@/lib/repos/bankroll';
 import { getMember, listMembers } from '@/lib/repos/members';
 import {
   deleteEntry as deleteEntryRow,
@@ -14,8 +14,9 @@ import {
   updateEntry as updateEntryRow,
 } from '@/lib/repos/entries';
 import { isPeriodClosed } from '@/lib/repos/closings';
+import { listFixturesBetween } from '@/lib/repos/sports';
 import { loadBankrollState } from './context';
-import { isoWeekRange, monthOfDate, monthRange, type IsoDate } from '@/lib/datetime';
+import { isoWeekRange, monthOfDate, monthRange, timeNowIn, todayIn, type IsoDate } from '@/lib/datetime';
 import { recordAudit, diffValues } from '@/lib/audit';
 import { formatMoney } from '@/lib/money';
 import { formatOdd } from '@/lib/numbers';
@@ -90,7 +91,53 @@ export async function previewRisk(params: {
   });
 }
 
-function buildWritePayload(input: EntryInput, riskOverride: boolean) {
+/**
+ * Entrada com todos os campos resolvidos: o formulário exige apenas evento,
+ * odd e stake, e o que faltar é preenchido aqui.
+ */
+export type ResolvedEntryInput = Omit<EntryInput, 'memberId' | 'occurredOn' | 'occurredAtTime' | 'sport' | 'market'> & {
+  memberId: string;
+  occurredOn: IsoDate;
+  occurredAtTime: string;
+  sport: string;
+  market: string;
+};
+
+/** Rótulo usado quando quem registrou não informou o campo. */
+export const NOT_INFORMED = 'Não informado';
+
+/**
+ * Preenche o que o formulário não exigiu:
+ *   responsável → quem está registrando (ou o único sócio ativo)
+ *   data e hora → agora, no fuso da banca
+ *   esporte     → Futebol, que é o caso da esmagadora maioria
+ *   mercado     → "Não informado"
+ */
+async function resolveEntryInput(user: SessionUser, input: EntryInput): Promise<ResolvedEntryInput> {
+  let memberId = input.memberId;
+  if (!memberId) {
+    if (user.memberId) memberId = user.memberId;
+    else {
+      const active = (await listMembers(user.bankrollId)).filter((m) => m.isActive);
+      if (active.length === 0) {
+        throw validation('Cadastre ao menos um sócio antes de registrar entradas.');
+      }
+      memberId = active[0]!.id;
+    }
+  }
+
+  const bankroll = await getBankroll(user.bankrollId);
+  return {
+    ...input,
+    memberId,
+    occurredOn: input.occurredOn ?? todayIn(bankroll.timezone),
+    occurredAtTime: input.occurredAtTime ?? timeNowIn(bankroll.timezone),
+    sport: input.sport ?? 'Futebol',
+    market: input.market ?? NOT_INFORMED,
+  };
+}
+
+function buildWritePayload(input: ResolvedEntryInput, riskOverride: boolean) {
   // O lucro NUNCA vem do cliente: é recalculado aqui, sempre.
   const result = computeEntryResult({
     status: input.status,
@@ -117,13 +164,14 @@ function buildWritePayload(input: EntryInput, riskOverride: boolean) {
   };
 }
 
-export async function createEntry(user: SessionUser, input: EntryInput): Promise<EntryWriteResult> {
+export async function createEntry(user: SessionUser, raw: EntryInput): Promise<EntryWriteResult> {
   const settings = await getSettings(user.bankrollId);
 
   if (!canCreateEntry(user, settings)) {
     throw forbidden('Você não tem permissão para registrar entradas nesta banca.');
   }
 
+  const input = await resolveEntryInput(user, raw);
   const member = await getMember(user.bankrollId, input.memberId);
   if (!member.isActive) throw validation('Este sócio está inativo e não pode receber entradas.');
 
@@ -186,9 +234,18 @@ export async function createEntry(user: SessionUser, input: EntryInput): Promise
 export async function updateEntry(
   user: SessionUser,
   entryId: string,
-  input: EntryInput,
+  raw: EntryInput,
 ): Promise<EntryWriteResult> {
   const existing = await getEntry(user.bankrollId, entryId);
+  // Numa edição, o que não vier no formulário mantém o valor que já estava.
+  const input = await resolveEntryInput(user, {
+    ...raw,
+    memberId: raw.memberId ?? existing.memberId,
+    occurredOn: raw.occurredOn ?? existing.occurredOn,
+    occurredAtTime: raw.occurredAtTime ?? existing.occurredAtTime.slice(0, 5),
+    sport: raw.sport ?? existing.sport,
+    market: raw.market ?? existing.market,
+  });
 
   if (!canEditEntry(user, existing)) {
     throw forbidden('Você só pode alterar entradas registradas por você.');
@@ -345,4 +402,62 @@ export async function selectableMembers(user: SessionUser) {
   const own = active.filter((m) => m.id === user.memberId);
   if (own.length === 0) throw notFound('Seu usuário não está vinculado a nenhum sócio desta banca.');
   return own;
+}
+
+// ---------------------------------------------------------------------------
+// Jogos do dia para o formulário
+// ---------------------------------------------------------------------------
+
+/** Um jogo oferecido no seletor do formulário de entrada. */
+export interface MatchOptionView {
+  id: string;
+  home: string;
+  away: string;
+  league: string;
+  time: string;
+  day: string;
+  live: boolean;
+}
+
+/**
+ * Jogos de hoje e amanhã, para escolher no lugar de digitar o evento.
+ *
+ * Lê o calendário que o módulo de Dicas já mantém no banco. Se essas tabelas
+ * ainda não existirem, ou se nada foi coletado, devolve lista vazia e o
+ * formulário simplesmente pede o evento por escrito.
+ */
+export async function listMatchOptions(timezone: string): Promise<MatchOptionView[]> {
+  try {
+    const now = new Date();
+    const from = new Date(now.getTime() - 6 * 3600_000);
+    const to = new Date(now.getTime() + 42 * 3600_000);
+    const stored = await listFixturesBetween(from, to);
+    const today = todayIn(timezone);
+
+    return stored
+      .filter((item) => item.fixture.status !== 'CANCELLED' && item.fixture.status !== 'POSTPONED')
+      .map((item) => {
+        const fixture = item.fixture;
+        const date = new Date(fixture.startTime);
+        const dayIso = new Intl.DateTimeFormat('en-CA', {
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(date);
+        return {
+          id: fixture.id,
+          home: fixture.homeTeam.name,
+          away: fixture.awayTeam.name,
+          league: fixture.league.name,
+          time: new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(date),
+          day: dayIso === today ? 'hoje' : dayIso > today ? 'amanhã' : 'ontem',
+          live: fixture.status === 'LIVE' || fixture.status === 'HALFTIME',
+        };
+      })
+      .sort((a, b) => Number(b.live) - Number(a.live) || a.time.localeCompare(b.time))
+      .slice(0, 120);
+  } catch {
+    return [];
+  }
 }

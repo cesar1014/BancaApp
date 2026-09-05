@@ -6,6 +6,7 @@ import { IconPlus } from '@/components/icons';
 import { EntriesTable } from './entries-table';
 import { EntryFormModal } from './entry-form-modal';
 import type { Entry, Member, SessionUser } from '@/lib/domain/types';
+import type { MatchOption } from './match-picker';
 
 /**
  * Une a tabela ao formulário: a página continua sendo Server Component e este
@@ -20,8 +21,8 @@ export function EntriesPageClient({
   maxStakeCents,
   today,
   now,
-  sports,
   markets,
+  matches,
 }: {
   user: SessionUser;
   entries: Entry[];
@@ -31,8 +32,8 @@ export function EntriesPageClient({
   maxStakeCents: number;
   today: string;
   now: string;
-  sports: string[];
   markets: string[];
+  matches: MatchOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Entry | null>(null);
@@ -81,8 +82,8 @@ export function EntriesPageClient({
           defaultMemberId={user.memberId}
           canOverrideRisk={canOverrideRisk}
           maxStakeCents={maxStakeCents}
-          sports={sports}
           markets={markets}
+          matches={matches}
         />
       ) : null}
     </>

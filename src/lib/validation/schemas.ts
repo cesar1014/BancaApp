@@ -127,14 +127,35 @@ export const recoverPasswordSchema = z
 // ---------------------------------------------------------------------------
 // Entradas
 // ---------------------------------------------------------------------------
+/**
+ * Registro de uma aposta.
+ *
+ * Só três campos são obrigatórios: evento, odd e stake. É o mínimo para o
+ * servidor calcular o resultado e avaliar o risco. Todo o resto tem valor
+ * padrão — data e hora viram agora, responsável vira quem está registrando e
+ * esporte e mercado ficam como "não informado". Exigir preenchimento manual
+ * de tudo só atrapalhava quem registra uma aposta com o jogo rolando.
+ */
 export const entrySchema = z
   .object({
-    memberId: uuidField,
-    occurredOn: isoDateField,
-    occurredAtTime: timeField,
-    sport: trimmed(60).min(1, 'Informe o esporte.'),
+    memberId: z
+      .string()
+      .optional()
+      .transform((value) => (value && value.trim() !== '' ? value.trim() : null))
+      .refine((value) => value === null || z.string().uuid().safeParse(value).success, {
+        message: 'Responsável inválido.',
+      }),
+    occurredOn: z
+      .string()
+      .optional()
+      .transform((value) => (value && isIsoDate(value) ? value : null)),
+    occurredAtTime: z
+      .string()
+      .optional()
+      .transform((value) => (value && /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null)),
+    sport: trimmed(60).optional().transform((v) => (v && v !== '' ? v : null)),
     event: trimmed(200).min(1, 'Informe o evento.'),
-    market: trimmed(200).min(1, 'Informe o mercado.'),
+    market: trimmed(200).optional().transform((v) => (v && v !== '' ? v : null)),
     odd: z.string().transform((value, ctx) => {
       const milli = parseOddToMilli(value);
       if (milli === null || milli <= 1000) {
