@@ -100,25 +100,39 @@ docker run --name banca-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=banca -p
 
 ### Rotinas automáticas (cron)
 
-O `vercel.json` já traz duas rotinas diárias — coleta de bilhetes às 08:00 e
-atualização das dicas às 14:00 (horário de Brasília). Para elas funcionarem,
-defina na Vercel a variável `CRON_SECRET` **com o mesmo valor** de
-`WORKER_SECRET`: a Vercel envia esse segredo no cabeçalho `Authorization`, que
-é o que os workers verificam.
+**O aplicativo funciona sem nenhuma rotina configurada.** As páginas de Dicas
+se atualizam sozinhas quando alguém as abre (`SPORTS_REFRESH_ON_VIEW=true`),
+respeitando o mesmo controle de quota; os Bilhetes têm o botão "Coletar agora"
+na aba Fontes.
 
-O plano Hobby da Vercel permite duas rotinas, uma vez por dia cada — é o que
-está configurado. Isso basta porque as páginas de Dicas também se atualizam
-sozinhas quando alguém as abre (`SPORTS_REFRESH_ON_VIEW=true`), respeitando o
-mesmo controle de quota.
+Este projeto **não inclui `vercel.json`** de propósito: cron jobs na Vercel
+exigem plano pago, e um `vercel.json` com `crons` faz o deploy falhar no plano
+Hobby mesmo quando o build passa. Se você tem plano Pro, crie o arquivo:
 
-Para acompanhamento ao vivo de verdade, aumente a frequência da rotina
-`sports` no `vercel.json` (plano Pro) ou aponte um cron externo gratuito
-(cron-job.org, GitHub Actions) para:
+```json
+{
+  "crons": [
+    { "path": "/api/workers/bilhetes", "schedule": "0 11 * * *" },
+    { "path": "/api/workers/sports", "schedule": "*/10 * * * *" }
+  ]
+}
+```
+
+e defina `CRON_SECRET` com o mesmo valor de `WORKER_SECRET`, porque é esse o
+segredo que a Vercel envia no cabeçalho `Authorization`.
+
+No plano gratuito, use um cron externo — [cron-job.org](https://cron-job.org)
+faz isso de graça. Crie duas tarefas apontando para:
 
 ```
-POST https://SEU-APP/api/workers/sports?job=live
-Authorization: Bearer <WORKER_SECRET>
+POST https://SEU-APP/api/workers/bilhetes
+POST https://SEU-APP/api/workers/sports
+Cabeçalho:  Authorization: Bearer <WORKER_SECRET>
 ```
+
+A primeira uma ou duas vezes por dia; a segunda a cada 10 minutos se quiser
+acompanhamento ao vivo. Chamar com frequência não gasta quota extra: cada
+rotina tem cooldown próprio no servidor.
 
 O endpoint `/api/health` responde `200` quando o banco está acessível — útil
 para monitoramento.
