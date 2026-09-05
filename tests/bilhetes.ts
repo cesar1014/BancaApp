@@ -25,6 +25,7 @@ import {
   slipProbability,
 } from '../src/lib/bilhetes/domain/slip';
 import { parseCallOdd, parseChannelCalls, parseUnits, scoreCalls } from '../src/lib/bilhetes/domain/calls';
+import { buildConsensus, weightedRoiBps } from '../src/lib/bilhetes/domain/consensus';
 import { matchLeg } from '../src/lib/bilhetes/matching';
 import { isAllowedByRobots, parseRobots } from '../src/lib/bilhetes/sources/fetch-page';
 import { parseApostasePalpites, apostasePalpitesSource } from '../src/lib/bilhetes/sources/apostasepalpites';
@@ -588,4 +589,136 @@ test('unidade não declarada conta como uma no placar', () => {
   const score = scoreCalls([{ result: 'GREEN', oddMilli: 2_000, unitsCentis: null }]);
   assert.equal(score.stakedCentis, 100);
   assert.equal(score.profitCentis, 100);
+});
+
+// ===========================================================================
+group('Bilhetes › consenso entre fontes');
+// ===========================================================================
+
+function pick(
+  fixtureId: string,
+  market: string,
+  selection: string,
+  sourceSlug: string,
+  kind: 'SLIP' | 'MODEL' = 'SLIP',
+  line: number | null = null,
+) {
+  return {
+    fixtureId,
+    market,
+    selection,
+    line,
+    sourceSlug,
+    sourceName: sourceSlug,
+    kind,
+    publishedOddMilli: null,
+  } as Parameters<typeof buildConsensus>[0][number];
+}
+
+test('agrupa a mesma seleção apontada por fontes diferentes', () => {
+  const entradas = buildConsensus([
+    pick('jogo1', 'OVER_2_5', 'OVER', 'aposta10', 'SLIP', 2.5),
+    pick('jogo1', 'OVER_2_5', 'OVER', 'mightytips', 'SLIP', 2.5),
+    pick('jogo1', 'MATCH_WINNER', 'HOME', 'aposta10'),
+  ]);
+  const over = entradas.find((e) => e.market === 'OVER_2_5')!;
+  assert.equal(over.sourceCount, 2);
+  assert.deepEqual(over.sources.map((s) => s.slug).sort(), ['aposta10', 'mightytips']);
+  assert.equal(entradas.find((e) => e.market === 'MATCH_WINNER')!.sourceCount, 1);
+});
+
+test('a mesma fonte apontando duas vezes conta uma só', () => {
+  const [entrada] = buildConsensus([
+    pick('jogo1', 'BTTS', 'YES', 'predictlix'),
+    pick('jogo1', 'BTTS', 'YES', 'predictlix'),
+  ]);
+  assert.equal(entrada!.sourceCount, 1);
+  assert.equal(entrada!.sources.length, 1);
+});
+
+test('linhas diferentes do mesmo mercado não se misturam', () => {
+  const entradas = buildConsensus([
+    pick('jogo1', 'CORNERS', 'OVER', 'a', 'SLIP', 8.5),
+    pick('jogo1', 'CORNERS', 'OVER', 'b', 'SLIP', 9.5),
+  ]);
+  assert.equal(entradas.length, 2, 'over 8.5 e over 9.5 são apostas diferentes');
+});
+
+test('o modelo do app é reconhecido e pesa mais que outra fonte', () => {
+  const comModelo = buildConsensus([
+    pick('jogo1', 'OVER_2_5', 'OVER', 'aposta10'),
+    pick('jogo1', 'OVER_2_5', 'OVER', 'modelo', 'MODEL'),
+  ])[0]!;
+  const doisSites = buildConsensus([
+    pick('jogo2', 'OVER_2_5', 'OVER', 'aposta10'),
+    pick('jogo2', 'OVER_2_5', 'OVER', 'mightytips'),
+  ])[0]!;
+
+  assert.equal(comModelo.modelBacked, true);
+  assert.equal(doisSites.modelBacked, false);
+  assert.ok(
+    comModelo.score > doisSites.score,
+    `modelo + site (${comModelo.score}) deveria valer mais que site + site (${doisSites.score})`,
+  );
+});
+
+test('mais fontes concordando aumenta a nota', () => {
+  const nota = (n: number) =>
+    buildConsensus(
+      Array.from({ length: n }, (_, i) => pick('jogo1', 'BTTS', 'YES', `fonte${i}`)),
+    )[0]!.score;
+  assert.ok(nota(1) < nota(2), 'duas fontes > uma');
+  assert.ok(nota(2) < nota(3), 'três fontes > duas');
+  assert.ok(nota(4) >= nota(5) - 1, 'a partir de quatro a concordância satura');
+});
+
+test('value entra na nota, e value negativo não pontua', () => {
+  const chave = 'jogo1|OVER_2_5|OVER|';
+  const base = [pick('jogo1', 'OVER_2_5', 'OVER', 'a'), pick('jogo1', 'OVER_2_5', 'OVER', 'b')];
+
+  const bom = buildConsensus(base, {
+    marketOdds: new Map([[chave, { oddMilli: 2_200, bookmaker: 'Bet365' }]]),
+    modelProbabilities: new Map([[chave, 5_000]]), // odd justa 2,00 → value +10%
+  })[0]!;
+  const ruim = buildConsensus(base, {
+    marketOdds: new Map([[chave, { oddMilli: 1_800, bookmaker: 'Bet365' }]]),
+    modelProbabilities: new Map([[chave, 5_000]]), // value −10%
+  })[0]!;
+
+  assert.ok(bom.valueBps !== null && bom.valueBps > 0);
+  assert.ok(ruim.valueBps !== null && ruim.valueBps < 0);
+  assert.ok(bom.score > ruim.score, 'value positivo tem de valer mais que negativo');
+});
+
+test('histórico das fontes é ponderado pelo tamanho da amostra', () => {
+  const records = new Map([
+    // Fonte com muita amostra e yield ruim domina a média.
+    ['grande', { slug: 'grande', roiBps: -800, settled: 400 }],
+    ['pequena', { slug: 'pequena', roiBps: 2_000, settled: 5 }],
+  ]);
+  const media = weightedRoiBps(['grande', 'pequena'], records)!;
+  assert.ok(media < 0, `esperava média negativa, veio ${media}`);
+  assert.ok(media > -800, 'a fonte pequena ainda puxa um pouco para cima');
+});
+
+test('fonte sem histórico não entra na média em vez de virar zero', () => {
+  const records = new Map([['boa', { slug: 'boa', roiBps: 1_000, settled: 50 }]]);
+  assert.equal(weightedRoiBps(['boa', 'desconhecida'], records), 1_000);
+  assert.equal(weightedRoiBps(['desconhecida'], records), null);
+});
+
+test('entrada sem nada a favor tira nota baixa', () => {
+  const [solo] = buildConsensus([pick('jogo1', 'BTTS', 'YES', 'a')]);
+  assert.ok(solo!.score <= 15, `uma fonte, sem modelo, sem value e sem histórico: ${solo!.score}`);
+});
+
+test('a ordenação põe a maior nota primeiro', () => {
+  const entradas = buildConsensus([
+    pick('jogoFraco', 'BTTS', 'YES', 'a'),
+    pick('jogoForte', 'OVER_2_5', 'OVER', 'a'),
+    pick('jogoForte', 'OVER_2_5', 'OVER', 'b'),
+    pick('jogoForte', 'OVER_2_5', 'OVER', 'modelo', 'MODEL'),
+  ]);
+  assert.equal(entradas[0]!.fixtureId, 'jogoForte');
+  assert.ok(entradas[0]!.score > entradas[entradas.length - 1]!.score);
 });
