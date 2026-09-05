@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { collectAllSources, settleOpenSlips, verifyOpenSlips } from '@/lib/services/bilhetes.service';
 import { workerSecret } from '@/lib/services/sports/runtime';
+import { collectAllChannels } from '@/lib/services/calls.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,9 +37,15 @@ async function handle(request: NextRequest): Promise<NextResponse> {
   const job = (request.nextUrl.searchParams.get('job') ?? 'all').toLowerCase();
   const force = request.nextUrl.searchParams.get('force') === '1';
   try {
+    if (job === 'calls') {
+      return NextResponse.json({ ok: true, job, calls: await collectAllChannels() });
+    }
     if (job === 'collect' || job === 'all') {
       const reports = await collectAllSources({ force });
-      return NextResponse.json({ ok: true, job, reports });
+      // Canais do Telegram entram no mesmo ciclo: a mesma visita traz as calls
+      // novas e o resultado que o canal editou nas antigas.
+      const calls = job === 'all' ? await collectAllChannels() : [];
+      return NextResponse.json({ ok: true, job, reports, calls });
     }
     if (job === 'verify') return NextResponse.json({ ok: true, job, report: await verifyOpenSlips() });
     if (job === 'settle') return NextResponse.json({ ok: true, job, report: await settleOpenSlips() });

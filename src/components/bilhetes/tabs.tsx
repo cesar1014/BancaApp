@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 const TABS = [
   { href: '/bilhetes', label: 'Hoje' },
   { href: '/bilhetes/proximos', label: 'Próximos' },
+  { href: '/bilhetes/calls', label: 'Calls' },
   { href: '/bilhetes/historico', label: 'Histórico' },
   { href: '/bilhetes/fontes', label: 'Fontes' },
 ] as const;

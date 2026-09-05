@@ -24,6 +24,7 @@ import {
   slipMoney,
   slipProbability,
 } from '../src/lib/bilhetes/domain/slip';
+import { parseCallOdd, parseChannelCalls, parseUnits, scoreCalls } from '../src/lib/bilhetes/domain/calls';
 import { matchLeg } from '../src/lib/bilhetes/matching';
 import { isAllowedByRobots, parseRobots } from '../src/lib/bilhetes/sources/fetch-page';
 import { parseApostasePalpites, apostasePalpitesSource } from '../src/lib/bilhetes/sources/apostasepalpites';
@@ -446,4 +447,145 @@ test('ordenar por chance difere de ordenar por odd', () => {
   const b = slipProbability({ informedOddMilli: 10_000, legsCount: 8, legs: [] })!;
   assert.ok(12_000 > 10_000, 'A tem odd maior');
   assert.ok(a.probabilityBps > b.probabilityBps, 'mas A tem mais chance de bater');
+});
+
+// ===========================================================================
+group('Bilhetes › calls de canal do Telegram');
+// ===========================================================================
+/**
+ * Todos os testes rodam sobre HTML salvo em tests/fixtures/bilhetes/.
+ * Nenhum toca a rede.
+ */
+
+const LACASA = fixture('canaldolacasa.html');
+const TIPSBRASIL = fixture('tipsbrasil.html');
+
+test('lê as calls do La Casa com seleção, odd, casa, unidade e resultado', () => {
+  const calls = parseChannelCalls(LACASA, 'canaldolacasa');
+  assert.ok(calls.length >= 8, `esperava ao menos 8 calls, veio ${calls.length}`);
+
+  const city = calls.find((c) => c.selection.includes('Gols City'));
+  assert.ok(city, 'não achou a call "+1.5 Gols City"');
+  assert.equal(city!.oddMilli, 1_640);
+  assert.equal(city!.unitsCentis, 100);
+  assert.equal(city!.bookmaker, 'BetMGM');
+  assert.equal(city!.result, 'RED');
+  assert.equal(city!.teamHint, 'City');
+  assert.equal(city!.postUrl, `https://t.me/canaldolacasa/${city!.postId}`);
+});
+
+test('reconhece green, red e reembolso pelo emoji', () => {
+  const calls = parseChannelCalls(LACASA, 'canaldolacasa');
+  const porResultado = (r: string) => calls.filter((c) => c.result === r).length;
+  assert.ok(porResultado('GREEN') >= 2, 'esperava greens');
+  assert.ok(porResultado('RED') >= 2, 'esperava reds');
+  assert.ok(porResultado('VOID') >= 1, 'esperava ao menos um reembolso (🔄)');
+});
+
+test('lê o Tips Brasil, que escreve "1u" e marca o resultado na linha da odd', () => {
+  const calls = parseChannelCalls(TIPSBRASIL, 'Tipsbrasiloficial');
+  assert.ok(calls.length >= 3, `esperava ao menos 3 calls, veio ${calls.length}`);
+  for (const call of calls) {
+    assert.equal(call.unitsCentis, 100, 'todas são de 1 unidade');
+    assert.ok(call.oddMilli !== null && call.oddMilli > 1_000);
+  }
+  assert.ok(calls.some((c) => c.result === 'GREEN'), 'o ✅ na linha da odd precisa virar GREEN');
+});
+
+test('a seleção sai limpa de emoji, bandeira e caractere invisível', () => {
+  for (const [html, canal] of [[LACASA, 'canaldolacasa'], [TIPSBRASIL, 'Tipsbrasiloficial']] as const) {
+    for (const call of parseChannelCalls(html, canal)) {
+      assert.ok(call.selection.length > 0, 'seleção vazia');
+      assert.equal(call.selection, call.selection.trim());
+      assert.ok(
+        !/[\u{1F300}-\u{1FAFF}\u{E0000}-\u{E007F}\u{FE0F}]/u.test(call.selection),
+        `sobrou caractere invisível ou emoji em "${call.selection}"`,
+      );
+    }
+  }
+});
+
+test('propaganda de casa não vira call', () => {
+  const calls = parseChannelCalls(LACASA, 'canaldolacasa');
+  // "🚨 1 Gol na Frente, TÁ PAGO! ⚡️ Odds @2.00 na SuperBet 💵 Limite Máximo:
+  // R$100,00" tem odd, mas é promoção: não declara unidade nem resultado.
+  assert.equal(
+    calls.some((c) => /Gol na Frente|PAGO|Limite/i.test(c.rawText) && /Limite Máximo/i.test(c.rawText)),
+    false,
+    'a promoção de cadastro entrou como call',
+  );
+});
+
+test('mensagem sem odd nunca é call', () => {
+  for (const [html, canal] of [[LACASA, 'canaldolacasa'], [TIPSBRASIL, 'Tipsbrasiloficial']] as const) {
+    for (const call of parseChannelCalls(html, canal)) {
+      assert.ok(call.oddMilli !== null, 'call sem odd não deveria existir');
+    }
+  }
+});
+
+test('cada post aparece uma vez só', () => {
+  const calls = parseChannelCalls(LACASA, 'canaldolacasa');
+  assert.equal(new Set(calls.map((c) => c.postId)).size, calls.length);
+});
+
+test('unidades: "1 Unidade", "1u", "0,5u" e "2 un"', () => {
+  assert.equal(parseUnits('💵 1 Unidade'), 100);
+  assert.equal(parseUnits('0,5 unidades'), 50);
+  assert.equal(parseUnits('+2,5 Gols @ 1.67 | 1u ✅'), 100);
+  assert.equal(parseUnits('odd 1.90 | 0,5u'), 50);
+  assert.equal(parseUnits('| 2 un'), 200);
+  assert.equal(parseUnits('sem unidade nenhuma aqui'), null);
+});
+
+test('odd aceita ponto, vírgula e espaço depois do arroba', () => {
+  assert.equal(parseCallOdd('Odds @1.65 na Betano'), 1_650);
+  assert.equal(parseCallOdd('@2,00'), 2_000);
+  assert.equal(parseCallOdd('Odd @ 1.70'), 1_700);
+  assert.equal(parseCallOdd('sem odd'), null);
+  assert.equal(parseCallOdd('@1.00'), null, 'odd 1,00 não paga nada');
+});
+
+test('placar: green paga odd−1, red perde a stake, reembolso não conta', () => {
+  const score = scoreCalls([
+    { result: 'GREEN', oddMilli: 2_000, unitsCentis: 100 }, // +1,00u
+    { result: 'RED', oddMilli: 1_500, unitsCentis: 100 }, //   −1,00u
+    { result: 'VOID', oddMilli: 1_800, unitsCentis: 100 }, //   0, fora da conta
+    { result: null, oddMilli: 1_700, unitsCentis: 100 }, //     em aberto
+  ]);
+  assert.equal(score.calls, 4);
+  assert.equal(score.settled, 2);
+  assert.equal(score.voids, 1);
+  assert.equal(score.pending, 1);
+  assert.equal(score.stakedCentis, 200, 'reembolso e pendente não entram no arriscado');
+  assert.equal(score.profitCentis, 0);
+  assert.equal(score.roiBps, 0);
+  assert.equal(score.hitRateBps, 5_000);
+  assert.equal(score.profitFactorBps, 10_000, 'ganhou 1u e perdeu 1u: profit factor 1,00');
+});
+
+test('placar sem amostra devolve null em vez de zero', () => {
+  const vazio = scoreCalls([]);
+  assert.equal(vazio.hitRateBps, null);
+  assert.equal(vazio.roiBps, null);
+  assert.equal(vazio.averageOddMilli, null);
+  assert.equal(vazio.profitFactorBps, null);
+});
+
+test('taxa de acerto alta com odd baixa pode dar prejuízo', () => {
+  // 3 greens em odd 1,20 e 1 red: 75% de acerto, ROI negativo.
+  const score = scoreCalls([
+    { result: 'GREEN', oddMilli: 1_200, unitsCentis: 100 },
+    { result: 'GREEN', oddMilli: 1_200, unitsCentis: 100 },
+    { result: 'GREEN', oddMilli: 1_200, unitsCentis: 100 },
+    { result: 'RED', oddMilli: 1_200, unitsCentis: 100 },
+  ]);
+  assert.equal(score.hitRateBps, 7_500);
+  assert.ok(score.roiBps !== null && score.roiBps < 0, 'ROI deveria ser negativo apesar dos 75%');
+});
+
+test('unidade não declarada conta como uma no placar', () => {
+  const score = scoreCalls([{ result: 'GREEN', oddMilli: 2_000, unitsCentis: null }]);
+  assert.equal(score.stakedCentis, 100);
+  assert.equal(score.profitCentis, 100);
 });
