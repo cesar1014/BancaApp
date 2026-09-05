@@ -13,8 +13,8 @@ import { buildGoalModel, offensiveComponents } from './goal-model';
 import { notApplicable, toBps, type StrategyContext, type StrategyEstimate, type StrategyModule } from './types';
 
 function outcomes(ctx: StrategyContext) {
-  const { signals, league, prediction, config, fixture } = ctx;
-  const model = buildGoalModel(signals, league, { pressureBoost: 0.4 });
+  const { signals, league, prediction, anchor, config, fixture } = ctx;
+  const model = buildGoalModel(signals, league, { pressureBoost: 0.4, anchor });
   let probs = matchOutcomeProbabilities(
     fixture.score.home,
     fixture.score.away,
@@ -22,8 +22,23 @@ function outcomes(ctx: StrategyContext) {
     model.lambdaAway,
   );
 
-  // Pré-jogo com previsão do provedor: mistura pelo peso configurado.
-  if (!signals.isLive && prediction && prediction.homeWinBps !== null && prediction.awayWinBps !== null) {
+  /**
+   * Previsão do provedor: só entra quando o mercado NÃO deu a força dos times.
+   *
+   * Com âncora de 1X2, o preço já embute escalação, desfalques e forma, e é
+   * incomparavelmente melhor que uma porcentagem genérica de API. Misturar as
+   * duas só reintroduziria o viés que a âncora foi criada para eliminar: puxar
+   * favorito para baixo e azarão para cima. Sem âncora, a previsão é a única
+   * informação específica do confronto que existe, então vale o peso cheio.
+   */
+  const hasOutcomeAnchor = anchor !== null && anchor.outcome !== null;
+  if (
+    !signals.isLive &&
+    !hasOutcomeAnchor &&
+    prediction &&
+    prediction.homeWinBps !== null &&
+    prediction.awayWinBps !== null
+  ) {
     const w = config.params.strengthWeight ?? 0.6;
     const drawBps = prediction.drawBps ?? Math.max(0, 10_000 - prediction.homeWinBps - prediction.awayWinBps);
     probs = {
@@ -33,7 +48,19 @@ function outcomes(ctx: StrategyContext) {
     };
   }
 
-  return { model, probs };
+  return { model, probs, informed: hasOutcomeAnchor || (!signals.isLive && prediction !== null) };
+}
+
+/**
+ * No pré-jogo sem nenhuma informação do confronto — nem preço de 1X2, nem
+ * previsão do provedor — o modelo devolveria a média da liga, idêntica para
+ * todos os jogos. Um número que não distingue os times não é uma estimativa,
+ * e comparado a uma odd real produziria "value" proporcional ao tamanho do
+ * azarão. Nesses casos o certo é não opinar.
+ */
+function uninformedPrematch(ctx: StrategyContext, informed: boolean): string | null {
+  if (ctx.signals.isLive || informed) return null;
+  return 'sem cotação de 1X2 nem previsão: o modelo não distingue os times no pré-jogo';
 }
 
 function windowBlocked(ctx: StrategyContext): string | null {
@@ -52,7 +79,9 @@ export const matchWinnerStrategy: StrategyModule = {
     if (blocked) return [notApplicable('HOME', blocked)];
 
     const { signals, league, config, fixture } = ctx;
-    const { model, probs } = outcomes(ctx);
+    const { model, probs, informed } = outcomes(ctx);
+    const uninformed = uninformedPrematch(ctx, informed);
+    if (uninformed) return [notApplicable('HOME', uninformed), notApplicable('AWAY', uninformed)];
     const comps = offensiveComponents(signals, league, model, config.thresholds);
 
     const estimates: StrategyEstimate[] = [];
@@ -93,7 +122,9 @@ export const doubleChanceStrategy: StrategyModule = {
     if (blocked) return [notApplicable('1X', blocked)];
 
     const { signals, league, config, fixture } = ctx;
-    const { model, probs } = outcomes(ctx);
+    const { model, probs, informed } = outcomes(ctx);
+    const uninformed = uninformedPrematch(ctx, informed);
+    if (uninformed) return [notApplicable('1X', uninformed), notApplicable('X2', uninformed)];
     const comps = offensiveComponents(signals, league, model, config.thresholds);
 
     const make = (selection: Selection, p: number, label: string): StrategyEstimate => ({

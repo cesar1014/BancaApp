@@ -24,6 +24,25 @@ function minuteWindowOk(ctx: StrategyContext): string | null {
   return null;
 }
 
+/**
+ * Trava do pré-jogo para os mercados de gols.
+ *
+ * Antes do apito não existe estatística da partida, então o modelo de gols só
+ * tem duas fontes possíveis de informação sobre ESTE confronto: o mercado de
+ * total (Over/Under 2.5), do qual se lê o número de gols que as casas esperam,
+ * ou nada. Com "nada", a estimativa é a média da competição — igual para todos
+ * os jogos da liga — e comparar isso com uma odd real não mede vantagem
+ * nenhuma: mede só o quanto aquela partida foge da média, que é exatamente o
+ * que a odd já dizia. Sem o total, portanto, a estratégia não opina.
+ *
+ * Ao vivo a trava não se aplica: ali o jogo fornece a informação.
+ */
+function prematchNeedsTotal(ctx: StrategyContext): string | null {
+  if (ctx.signals.isLive) return null;
+  if (ctx.anchor && ctx.anchor.overTwoFive !== null) return null;
+  return 'sem mercado de total no pré-jogo: o modelo cairia na média da liga';
+}
+
 function minimumSignalsOk(ctx: StrategyContext): string | null {
   const { thresholds } = ctx.config;
   const { totals } = ctx.signals;
@@ -45,12 +64,14 @@ function overStrategy(key: string, line: number): StrategyModule {
     estimate(ctx): StrategyEstimate[] {
       const blocked = minuteWindowOk(ctx) ?? minimumSignalsOk(ctx);
       if (blocked) return [notApplicable('OVER', blocked)];
+      const noTotal = prematchNeedsTotal(ctx);
+      if (noTotal) return [notApplicable('OVER', noTotal)];
 
       const { signals, league, config } = ctx;
       const needed = Math.floor(line) + 1 - signals.totalGoals;
       if (needed <= 0) return [notApplicable('OVER', 'mercado já decidido')];
 
-      const model = buildGoalModel(signals, league, { pressureBoost: config.params.pressureBoost });
+      const model = buildGoalModel(signals, league, { pressureBoost: config.params.pressureBoost, anchor: ctx.anchor });
       const probability = poissonAtLeast(needed, model.lambdaTotal);
       const comps = offensiveComponents(signals, league, model, config.thresholds);
 
@@ -109,13 +130,15 @@ export const under25Strategy: StrategyModule = {
   estimate(ctx): StrategyEstimate[] {
     const blocked = minuteWindowOk(ctx);
     if (blocked) return [notApplicable('UNDER', blocked)];
+    const noTotal = prematchNeedsTotal(ctx);
+    if (noTotal) return [notApplicable('UNDER', noTotal)];
 
     const { signals, league, config } = ctx;
     const line = 2.5;
     const allowed = Math.floor(line) - signals.totalGoals; // gols que ainda cabem
     if (allowed < 0) return [notApplicable('UNDER', 'mercado já decidido')];
 
-    const model = buildGoalModel(signals, league, { pressureBoost: 0.5 });
+    const model = buildGoalModel(signals, league, { pressureBoost: 0.5, anchor: ctx.anchor });
     const probability = poissonCdf(allowed, model.lambdaTotal);
     const offensive = offensiveComponents(signals, league, model, config.thresholds);
 
@@ -158,13 +181,15 @@ export const bttsStrategy: StrategyModule = {
   estimate(ctx): StrategyEstimate[] {
     const blocked = minuteWindowOk(ctx);
     if (blocked) return [notApplicable('YES', blocked)];
+    const noTotal = prematchNeedsTotal(ctx);
+    if (noTotal) return [notApplicable('YES', noTotal)];
 
     const { signals, league, config, fixture } = ctx;
     const homeNeeds = fixture.score.home === 0 ? 1 : 0;
     const awayNeeds = fixture.score.away === 0 ? 1 : 0;
     if (homeNeeds === 0 && awayNeeds === 0) return [notApplicable('YES', 'ambas já marcaram')];
 
-    const model = buildGoalModel(signals, league, { pressureBoost: 0.45 });
+    const model = buildGoalModel(signals, league, { pressureBoost: 0.45, anchor: ctx.anchor });
     const probability =
       poissonAtLeast(homeNeeds, model.lambdaHome) * poissonAtLeast(awayNeeds, model.lambdaAway);
     const comps = offensiveComponents(signals, league, model, config.thresholds);
@@ -212,7 +237,7 @@ export const nextGoalStrategy: StrategyModule = {
     const { signals, league, config } = ctx;
     if (signals.dominance === null) return [notApplicable('HOME', 'sem dados de domínio')];
 
-    const model = buildGoalModel(signals, league, { pressureBoost: 0.5 });
+    const model = buildGoalModel(signals, league, { pressureBoost: 0.5, anchor: ctx.anchor });
     const anyGoal = poissonAtLeast(1, model.lambdaTotal);
     const homeShare = model.lambdaHome / Math.max(1e-9, model.lambdaTotal);
     const threshold = config.params.dominanceThreshold ?? 0.62;

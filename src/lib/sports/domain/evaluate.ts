@@ -20,6 +20,7 @@ import type {
   Selection,
   TipConfidence,
 } from './models';
+import { buildMarketAnchor, consensusOddMilli } from './market-anchor';
 import { bestQuote, expectedValueBps, fairOddMilli, isQuoteStale, minAcceptableOddMilli, valueBps as computeValueBps } from './odds-math';
 import { computeEntryScore, oddValueComponent } from './scoring';
 import { computeSignals, type FixtureSignals } from './signals';
@@ -80,11 +81,15 @@ export function evaluateFixture(input: EvaluateInput): FixtureEvaluation {
   const previousStates = input.previousStates ?? {};
   const monitored = input.monitored ?? false;
 
+  // Uma única leitura do mercado por partida, compartilhada pelas estratégias:
+  // é ela que dá ao modelo a força dos times. Ver domain/market-anchor.ts.
+  const anchor = buildMarketAnchor(quotes, league.avgGoalsMilli / 1000);
+
   const candidates: TipCandidate[] = [];
 
   for (const { module, config } of input.strategies) {
     if (!config.enabled) continue;
-    const context = { fixture, signals, league, prediction: input.prediction ?? null, config, now };
+    const context = { fixture, signals, league, prediction: input.prediction ?? null, anchor, config, now };
 
     let estimates;
     try {
@@ -153,6 +158,48 @@ export function evaluateFixture(input: EvaluateInput): FixtureEvaluation {
 
       const quote = bestQuote(quotes, config.market, estimate.selection, estimate.line);
       const oddMilli = quote?.oddMilli ?? null;
+
+      /**
+       * Freio de sanidade contra o consenso.
+       *
+       * O value que interessa é medido na MELHOR casa, mas a plausibilidade é
+       * medida na mediana de todas. Discordar do mercado inteiro por uma
+       * margem grande quase nunca significa que o mercado errou: significa que
+       * chegou uma estatística torta, que o placar está defasado, ou que a
+       * estratégia não está calibrada para aquela situação. Nesses casos o
+       * candidato é descartado com o motivo explícito, em vez de virar uma
+       * indicação confiante que a banca não tem como sustentar.
+       */
+      const consensusOdd = consensusOddMilli(quotes, config.market, estimate.selection, estimate.line);
+      if (consensusOdd !== null) {
+        const consensusValue = computeValueBps(estimate.probabilityBps, consensusOdd);
+        if (consensusValue > config.thresholds.maxConsensusValueBps) {
+          candidates.push({
+            strategyKey: config.key,
+            market: config.market,
+            selection: estimate.selection,
+            line: estimate.line,
+            probabilityBps: estimate.probabilityBps,
+            fairOddMilli: fairOddMilli(estimate.probabilityBps),
+            oddMilli,
+            minOddMilli: 0,
+            valueBps: null,
+            evBps: null,
+            score: 0,
+            breakdown: { total: 0, items: [] },
+            confidence: 'BAIXA',
+            rationale: estimate.rationale,
+            state: previous === 'DESCARTADA' ? 'DESCARTADA' : monitored ? 'MONITORANDO' : 'OBSERVANDO',
+            bookmaker: null,
+            oddsCapturedAt: null,
+            oddStale: false,
+            applicable: false,
+            reason: 'o modelo discorda do mercado além do plausível; provável dado ruim',
+          });
+          continue;
+        }
+      }
+
       const value = oddMilli === null ? null : computeValueBps(estimate.probabilityBps, oddMilli);
       const ev = oddMilli === null ? null : expectedValueBps(estimate.probabilityBps, oddMilli);
       const oddInRange =

@@ -53,6 +53,19 @@ export interface StrategyThresholds {
   minScore: number;
   /** Value/EV mínimo em bps para virar dica. */
   minValueBps: number;
+  /**
+   * Teto de discordância com o mercado, em bps, medido contra o preço de
+   * CONSENSO (mediana das casas), não contra a melhor casa.
+   *
+   * Serve de freio de sanidade. Quando o modelo enxerga muito mais valor do
+   * que o mercado inteiro, a explicação provável não é que todas as casas
+   * erraram: é que uma estatística chegou torta, um placar está defasado ou a
+   * estratégia está mal calibrada para aquela situação. Acima deste teto o
+   * sistema prefere não indicar nada a indicar com confiança algo que não
+   * consegue sustentar. O value legítimo — a melhor casa contra o consenso —
+   * é de poucos pontos percentuais e passa longe daqui.
+   */
+  maxConsensusValueBps: number;
   /** Odd mínima e máxima aceitas (milli). */
   minOddMilli: number;
   maxOddMilli: number;
@@ -92,6 +105,7 @@ export interface StrategyConfig {
 const BASE_THRESHOLDS: StrategyThresholds = {
   minScore: 70,
   minValueBps: 500, // +5%
+  maxConsensusValueBps: 2_000, // +20% contra o consenso já é sinal de erro, não de oportunidade
   minOddMilli: 1_250,
   maxOddMilli: 4_000,
   minMinute: 10,

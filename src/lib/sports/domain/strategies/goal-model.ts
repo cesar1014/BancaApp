@@ -15,6 +15,7 @@
 
 import type { LeagueCatalogEntry } from '../../config/leagues';
 import type { FixtureSignals } from '../signals';
+import type { MarketAnchor } from '../market-anchor';
 import { ENGINE_CONFIG } from '../../config/strategy-config';
 
 export interface GoalModel {
@@ -28,6 +29,8 @@ export interface GoalModel {
   xgPer90Milli: number | null;
   usedXg: boolean;
   usedShotsProxy: boolean;
+  /** true quando a força dos times veio do preço de mercado, não da média da liga. */
+  usedMarketAnchor: boolean;
 }
 
 /** Proxy de xG a partir de finalizações quando o provedor não traz xG. */
@@ -41,9 +44,17 @@ function xgProxyMilli(shots: number | null, shotsOnTarget: number | null): numbe
 export function buildGoalModel(
   signals: FixtureSignals,
   league: LeagueCatalogEntry,
-  params: { pressureBoost?: number } = {},
+  params: { pressureBoost?: number; anchor?: MarketAnchor | null } = {},
 ): GoalModel {
-  const baseRatePerMinute = league.avgGoalsMilli / 1000 / ENGINE_CONFIG.regulationMinutes;
+  /**
+   * Ponto de partida. Com âncora de mercado, é o total que o preço implica
+   * para ESTE confronto; sem ela, a média da competição — que não distingue
+   * um jogo do outro e por isso só se sustenta ao vivo, onde a estatística da
+   * partida corrige o palpite. Ver domain/market-anchor.ts.
+   */
+  const anchor = params.anchor ?? null;
+  const baseTotalGoals = anchor ? anchor.lambdaTotal : league.avgGoalsMilli / 1000;
+  const baseRatePerMinute = baseTotalGoals / ENGINE_CONFIG.regulationMinutes;
   const minute = signals.minute;
 
   // Taxa observada na partida (xG ou proxy), por minuto.
@@ -109,19 +120,28 @@ export function buildGoalModel(
    * porque a bola ainda pode entrar a qualquer momento.
    */
   const shareOfMatch = signals.remainingMinutes / ENGINE_CONFIG.regulationMinutes;
-  const leagueAverage = league.avgGoalsMilli / 1000;
-  const maxLambda = leagueAverage * 2 * shareOfMatch;
-  const minLambda = leagueAverage * 0.15 * shareOfMatch;
+  // O teto acompanha a referência usada: num jogo que o mercado precifica em
+  // 3,6 gols, limitar pelo dobro da média da liga estrangularia a estimativa.
+  const reference = Math.max(league.avgGoalsMilli / 1000, baseTotalGoals);
+  const maxLambda = reference * 2 * shareOfMatch;
+  const minLambda = reference * 0.15 * shareOfMatch;
   const lambdaTotal = Math.min(
     maxLambda,
     Math.max(minLambda, ratePerMinute * signals.remainingMinutes * pressureMultiplier),
   );
 
-  // Divisão entre os lados: pela dominância (ou pelo xG de cada lado); no
-  // pré-jogo, vantagem de mando de ~55/45.
-  let homeShare = 0.55;
+  /**
+   * Divisão entre os lados.
+   *
+   * A âncora manda quando existe: ela carrega a força real dos times, lida do
+   * 1X2. Sem âncora sobra a vantagem genérica de mando (~55/45), que é a mesma
+   * para qualquer confronto. Ao vivo, a dominância observada tem a palavra
+   * final — mas parte da divisão de mercado em vez de partir do 55/45, para
+   * que um jogo entre desiguais não seja tratado como equilibrado.
+   */
+  let homeShare = anchor ? anchor.homeShare : 0.55;
   if (signals.dominance !== null) {
-    homeShare = Math.min(0.8, Math.max(0.2, 0.5 + signals.dominance * 0.3));
+    homeShare = Math.min(0.8, Math.max(0.2, homeShare + signals.dominance * 0.3));
   }
   // Um vermelho reduz a produção do lado punido.
   if ((signals.home.redCards ?? 0) > 0) homeShare = Math.max(0.2, homeShare - 0.12);
@@ -135,6 +155,7 @@ export function buildGoalModel(
     xgPer90Milli,
     usedXg,
     usedShotsProxy,
+    usedMarketAnchor: anchor !== null,
   };
 }
 

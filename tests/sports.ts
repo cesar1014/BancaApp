@@ -29,6 +29,12 @@ import { evaluateFixture, identifiedEntries } from '../src/lib/sports/domain/eva
 import { runBacktest } from '../src/lib/sports/domain/backtest';
 import { STRATEGY_MODULES, findStrategyModule } from '../src/lib/sports/domain/strategies';
 import { buildGoalModel } from '../src/lib/sports/domain/strategies/goal-model';
+import {
+  buildMarketAnchor,
+  consensusOddMilli,
+  overTwoFiveProbability,
+  totalFromOverProbability,
+} from '../src/lib/sports/domain/market-anchor';
 import { SportsCache } from '../src/lib/sports/infra/cache';
 import { ProviderQuotaManager, DEFAULT_QUOTA_LIMITS } from '../src/lib/sports/infra/quota';
 import { CircuitBreaker } from '../src/lib/sports/infra/http';
@@ -284,7 +290,7 @@ test('estatística exagerada não vira previsão absurda (teto de sanidade)', ()
   assert.ok(model.lambdaTotal < 4, 'nenhum jogo tem 4+ gols esperados no tempo restante');
 
   const over05 = findStrategyModule('LIVE_OVER_0_5')!.estimate({
-    fixture: louco, signals: computeSignals(louco), league: LEAGUE, prediction: null,
+    fixture: louco, signals: computeSignals(louco), league: LEAGUE, prediction: null, anchor: null,
     config: findStrategyConfig('LIVE_OVER_0_5')!, now: NOW,
   })[0]!;
   assert.ok(over05.probabilityBps < 9700, `probabilidade ${over05.probabilityBps} irreal`);
@@ -352,7 +358,7 @@ test('Over 0.5 ao vivo: jogo pressionado sem gol tem probabilidade alta', () => 
   const module = findStrategyModule('LIVE_OVER_0_5')!;
   const config = findStrategyConfig('LIVE_OVER_0_5')!;
   const f = fixture();
-  const [estimate] = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, config, now: NOW });
+  const [estimate] = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, anchor: null, config, now: NOW });
   assert.equal(estimate!.applicable, true);
   assert.ok(estimate!.probabilityBps > 7000);
   assert.ok(estimate!.rationale.length >= 3);
@@ -362,7 +368,7 @@ test('estratégia fora da janela de minuto não é aplicável (com motivo)', () 
   const module = findStrategyModule('LIVE_OVER_0_5')!;
   const config = findStrategyConfig('LIVE_OVER_0_5')!;
   const f = fixture({ minute: 88 });
-  const [estimate] = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, config, now: NOW });
+  const [estimate] = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, anchor: null, config, now: NOW });
   assert.equal(estimate!.applicable, false);
   assert.match(estimate!.reason ?? '', /minuto/);
 });
@@ -371,17 +377,17 @@ test('mercado já decidido não é oferecido', () => {
   const module = findStrategyModule('LIVE_OVER_1_5')!;
   const config = findStrategyConfig('LIVE_OVER_1_5')!;
   const f = fixture({ score: { home: 2, away: 0 } });
-  const [estimate] = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, config, now: NOW });
+  const [estimate] = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, anchor: null, config, now: NOW });
   assert.equal(estimate!.applicable, false);
 });
 
 test('estratégias funcionam sem estatística nenhuma (só média da liga)', () => {
   const f = fixture({ statistics: null, minute: 30 });
   for (const { module, config } of STRATEGIES) {
-    const estimates = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, config, now: NOW });
+    const estimates = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, anchor: null, config, now: NOW });
     assert.ok(estimates.length > 0, config.key);
   }
-  const over25 = findStrategyModule('OVER_2_5')!.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, config: findStrategyConfig('OVER_2_5')!, now: NOW })[0]!;
+  const over25 = findStrategyModule('OVER_2_5')!.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, anchor: null, config: findStrategyConfig('OVER_2_5')!, now: NOW })[0]!;
   assert.equal(over25.applicable, true);
   assert.equal(over25.components.xg, null); // sem xG → componente ausente
 });
@@ -390,7 +396,7 @@ test('próximo gol só sugere o lado dominante', () => {
   const module = findStrategyModule('LIVE_NEXT_GOAL')!;
   const config = findStrategyConfig('LIVE_NEXT_GOAL')!;
   const f = fixture();
-  const estimates = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, config, now: NOW });
+  const estimates = module.estimate({ fixture: f, signals: computeSignals(f), league: LEAGUE, prediction: null, anchor: null, config, now: NOW });
   assert.equal(estimates.length, 1);
   assert.equal(estimates[0]!.selection, 'HOME');
 });
@@ -400,8 +406,8 @@ test('under favorece jogo sem pressão', () => {
   const config = findStrategyConfig('UNDER_2_5')!;
   const calm = fixture({ statistics: { ...fixture().statistics!, home: stats({ shots: 2, shotsOnTarget: 0, xgMilli: 100 }), away: stats({ shots: 1, shotsOnTarget: 0, xgMilli: 50 }) } });
   const hot = fixture();
-  const pCalm = module.estimate({ fixture: calm, signals: computeSignals(calm), league: LEAGUE, prediction: null, config, now: NOW })[0]!.probabilityBps;
-  const pHot = module.estimate({ fixture: hot, signals: computeSignals(hot), league: LEAGUE, prediction: null, config, now: NOW })[0]!.probabilityBps;
+  const pCalm = module.estimate({ fixture: calm, signals: computeSignals(calm), league: LEAGUE, prediction: null, anchor: null, config, now: NOW })[0]!.probabilityBps;
+  const pHot = module.estimate({ fixture: hot, signals: computeSignals(hot), league: LEAGUE, prediction: null, anchor: null, config, now: NOW })[0]!.probabilityBps;
   assert.ok(pCalm > pHot);
 });
 
@@ -729,11 +735,15 @@ test('mesclagem de estatísticas: primário manda, enriquecimento só preenche l
 group('Dicas › avaliação, dica, performance e backtest');
 // ===========================================================================
 test('avaliação identifica entrada quando score e value passam juntos', () => {
-  const quotes = [quote('OVER_0_5', 'OVER', 1580, 0.5), quote('OVER_1_5', 'OVER', 2400, 1.5)];
+  // As odds aqui precisam ser as que uma casa real ofereceria nesta situação
+  // (0 x 0 aos 34', mandante pressionando). Um Over 0.5 a 1,58 não existe no
+  // mercado, e o freio de plausibilidade — que compara o modelo ao consenso —
+  // recusaria a diferença, mascarando o que este teste quer verificar.
+  const quotes = [quote('OVER_0_5', 'OVER', 1250, 0.5), quote('OVER_1_5', 'OVER', 2400, 1.5)];
   const evaluation = evaluateFixture({ fixture: fixture(), league: LEAGUE, strategies: STRATEGIES, quotes, monitored: true, now: NOW });
   const over05 = evaluation.candidates.find((c) => c.strategyKey === 'LIVE_OVER_0_5')!;
   assert.equal(over05.applicable, true);
-  assert.equal(over05.oddMilli, 1580);
+  assert.equal(over05.oddMilli, 1250);
   assert.ok(over05.valueBps !== null && over05.valueBps > 0);
   assert.ok(over05.score >= 70, `score ${over05.score}`);
   assert.equal(over05.state, 'ENTRADA_IDENTIFICADA');
@@ -757,7 +767,7 @@ test('sem odds a partida fica em "aguardando odd", nunca em entrada', () => {
 });
 
 test('avaliação nunca quebra sem estatística e marca componentes ausentes', () => {
-  const evaluation = evaluateFixture({ fixture: fixture({ statistics: null }), league: LEAGUE, strategies: STRATEGIES, quotes: [quote('OVER_0_5', 'OVER', 1500, 0.5)], now: NOW });
+  const evaluation = evaluateFixture({ fixture: fixture({ statistics: null }), league: LEAGUE, strategies: STRATEGIES, quotes: [quote('OVER_0_5', 'OVER', 1250, 0.5)], now: NOW });
   const over05 = evaluation.candidates.find((c) => c.strategyKey === 'LIVE_OVER_0_5')!;
   assert.equal(over05.applicable, true);
   assert.equal(over05.breakdown.items.find((i) => i.key === 'xg')!.available, false);
@@ -807,7 +817,7 @@ test('backtest roda a mesma avaliação sobre snapshots e liquida com o final', 
     [
       {
         league: LEAGUE,
-        snapshots: [snapshotAt(25, 1500), snapshotAt(30, 1580), snapshotAt(35, 1620)],
+        snapshots: [snapshotAt(25, 1230), snapshotAt(30, 1250), snapshotAt(35, 1270)],
         final: fixture({ status: 'FINISHED', minute: 90, score: { home: 2, away: 1 } }),
       },
     ],
@@ -819,4 +829,183 @@ test('backtest roda a mesma avaliação sobre snapshots e liquida com o final', 
   assert.equal(over05.length, 1); // uma dica por partida/estratégia, mesmo com 3 snapshots
   assert.equal(over05[0]!.result, 'GREEN');
   assert.ok(report.performance.overall.profitCents > 0);
+});
+
+// ===========================================================================
+group('Dicas › âncora de mercado');
+// ===========================================================================
+/**
+ * Regressão do defeito mais perigoso que o modo real expôs: no pré-jogo o
+ * modelo não distinguia os times, então o "value" era função apenas da odd e
+ * o sistema recomendava azarão em casa de forma sistemática.
+ */
+
+/** Cotações de um confronto: 1X2 + total, como as casas publicam. */
+function marketQuotes(home: number, draw: number, away: number, over = 1_900, under = 1_900): OddsQuote[] {
+  return [
+    quote('MATCH_WINNER', 'HOME', home),
+    quote('MATCH_WINNER', 'DRAW', draw),
+    quote('MATCH_WINNER', 'AWAY', away),
+    quote('OVER_2_5', 'OVER', over, 2.5),
+    quote('UNDER_2_5', 'UNDER', under, 2.5),
+  ];
+}
+
+const PREMATCH_SIGNALS = computeSignals(
+  fixture({ status: 'SCHEDULED', minute: null, statistics: null, score: { home: 0, away: 0 } }),
+  null,
+);
+
+test('o total de gols é lido do mercado de Over/Under, não da média da liga', () => {
+  const alto = buildMarketAnchor(marketQuotes(2_000, 3_600, 3_500, 1_500, 2_600), 2.45)!;
+  const baixo = buildMarketAnchor(marketQuotes(2_000, 3_600, 3_500, 3_000, 1_400), 2.45)!;
+  assert.ok(alto.lambdaTotal > 3.2, 'esperava total alto no mercado de muito gol');
+  assert.ok(baixo.lambdaTotal < 2.0, 'esperava total baixo no mercado travado');
+  assert.ok(alto.lambdaTotal > baixo.lambdaTotal + 1.2, 'os dois cenários têm de ficar bem separados');
+});
+
+test('a inversão de Over 2.5 para lambda reproduz a probabilidade de origem', () => {
+  for (const p of [0.35, 0.5, 0.62, 0.75]) {
+    const lambda = totalFromOverProbability(p);
+    assert.ok(Math.abs(overTwoFiveProbability(lambda) - p) < 1e-6, 'a bisseção não convergiu');
+  }
+});
+
+test('a divisão entre os lados vem do 1X2: favorito recebe mais gols esperados', () => {
+  const favoritoEmCasa = buildMarketAnchor(marketQuotes(1_250, 6_500, 11_000), 2.45)!;
+  const favoritoFora = buildMarketAnchor(marketQuotes(9_000, 6_000, 1_330), 2.45)!;
+  assert.ok(favoritoEmCasa.lambdaHome > favoritoEmCasa.lambdaAway * 2.5, 'mandante favorito deve dominar o lambda');
+  assert.ok(favoritoFora.lambdaAway > favoritoFora.lambdaHome * 2.5, 'visitante favorito deve dominar o lambda');
+  assert.ok(Math.abs(favoritoEmCasa.lambdaTotal - favoritoFora.lambdaTotal) < 1e-9, 'o total não depende do 1X2');
+});
+
+test('o modelo ancorado reproduz a probabilidade justa do mercado', () => {
+  for (const [h, d, a] of [[1_250, 6_500, 11_000], [2_560, 3_500, 2_700], [9_000, 6_000, 1_330]] as const) {
+    const anchor = buildMarketAnchor(marketQuotes(h, d, a), 2.45)!;
+    const model = buildGoalModel(PREMATCH_SIGNALS, LEAGUE, { pressureBoost: 0.4, anchor });
+    const probs = matchOutcomeProbabilities(0, 0, model.lambdaHome, model.lambdaAway);
+    const mercado = anchor.outcome!.homeWin;
+    assert.ok(Math.abs(probs.homeWin - mercado) < 0.02, 'modelo e mercado divergiram demais');
+  }
+});
+
+test('REGRESSÃO: o azarão em casa deixa de exibir value inventado', () => {
+  const oddAzarao = 9_000;
+  const quotes = marketQuotes(oddAzarao, 6_000, 1_330);
+
+  const semAncora = buildGoalModel(PREMATCH_SIGNALS, LEAGUE, { pressureBoost: 0.4 });
+  const pSem = matchOutcomeProbabilities(0, 0, semAncora.lambdaHome, semAncora.lambdaAway).homeWin;
+  assert.ok(pSem * (oddAzarao / 1000) - 1 > 2, 'o defeito antigo produzia value acima de +200%');
+
+  const comAncora = buildGoalModel(PREMATCH_SIGNALS, LEAGUE, {
+    pressureBoost: 0.4,
+    anchor: buildMarketAnchor(quotes, 2.45),
+  });
+  const pCom = matchOutcomeProbabilities(0, 0, comAncora.lambdaHome, comAncora.lambdaAway).homeWin;
+  assert.ok(pCom * (oddAzarao / 1000) - 1 < 0.05, 'o value do azarão continua inflado');
+});
+
+test('a estimativa passa a distinguir os times do mesmo confronto invertido', () => {
+  const casaForte = buildMarketAnchor(marketQuotes(1_250, 6_500, 11_000), 2.45);
+  const casaFraca = buildMarketAnchor(marketQuotes(11_000, 6_500, 1_250), 2.45);
+  const p = (anchor: ReturnType<typeof buildMarketAnchor>) => {
+    const m = buildGoalModel(PREMATCH_SIGNALS, LEAGUE, { pressureBoost: 0.4, anchor });
+    return matchOutcomeProbabilities(0, 0, m.lambdaHome, m.lambdaAway).homeWin;
+  };
+  assert.ok(p(casaForte) - p(casaFraca) > 0.5, 'inverter o favorito tem de inverter a estimativa');
+});
+
+test('a mediana ignora a casa fora da curva ao formar o consenso', () => {
+  const quotes = [
+    quote('MATCH_WINNER', 'HOME', 2_500, null, 'Bet365'),
+    quote('MATCH_WINNER', 'HOME', 2_520, null, 'Pinnacle'),
+    quote('MATCH_WINNER', 'HOME', 2_480, null, 'Betfair'),
+    quote('MATCH_WINNER', 'HOME', 4_000, null, 'CasaComErro'),
+  ];
+  const consenso = consensusOddMilli(quotes, 'MATCH_WINNER', 'HOME');
+  assert.ok(consenso !== null && consenso >= 2_480 && consenso <= 2_520, 'a casa fora da curva deslocou o consenso');
+});
+
+test('o value que sobra é a diferença entre a melhor casa e o consenso', () => {
+  const quotes = [
+    ...marketQuotes(2_500, 3_500, 2_700),
+    quote('MATCH_WINNER', 'HOME', 2_520, null, 'Pinnacle'),
+    quote('MATCH_WINNER', 'HOME', 2_800, null, 'CasaGenerosa'),
+  ];
+  const anchor = buildMarketAnchor(quotes, 2.45)!;
+  const model = buildGoalModel(PREMATCH_SIGNALS, LEAGUE, { pressureBoost: 0.4, anchor });
+  const p = matchOutcomeProbabilities(0, 0, model.lambdaHome, model.lambdaAway).homeWin;
+  assert.ok(p * 2.5 - 1 < 0, 'apostar no preço de consenso continua sendo EV negativo');
+  assert.ok(p * 2.8 - 1 > 0.03, 'a casa acima do consenso tem de gerar value positivo');
+});
+
+test('sem cotação nenhuma não há âncora, e o pré-jogo não opina', () => {
+  assert.equal(buildMarketAnchor([], 2.45), null);
+
+  const semOdds = fixture({ status: 'SCHEDULED', minute: null, statistics: null, odds: null });
+  const evaluation = evaluateFixture({ fixture: semOdds, league: LEAGUE, strategies: STRATEGIES, quotes: [], now: NOW });
+  const prejogo = evaluation.candidates.filter((c) =>
+    ['MATCH_WINNER', 'DOUBLE_CHANCE', 'OVER_2_5', 'UNDER_2_5', 'BTTS'].includes(c.strategyKey),
+  );
+  assert.ok(prejogo.length > 0, 'as estratégias de pré-jogo têm de ser avaliadas');
+  for (const candidato of prejogo) {
+    assert.equal(candidato.applicable, false, 'uma estratégia opinou sem informação nenhuma');
+  }
+});
+
+test('só o mercado de total, sem 1X2, ainda serve para os mercados de gols', () => {
+  const anchor = buildMarketAnchor(
+    [quote('OVER_2_5', 'OVER', 1_500, 2.5), quote('UNDER_2_5', 'UNDER', 2_600, 2.5)],
+    2.45,
+  )!;
+  assert.equal(anchor.source, 'TOTAL');
+  assert.equal(anchor.outcome, null);
+  assert.ok(anchor.overTwoFive !== null && anchor.overTwoFive > 0.55);
+  assert.ok(Math.abs(anchor.homeShare - 0.55) < 1e-9, 'sem 1X2 vale a vantagem genérica de mando');
+});
+
+test('ao vivo a âncora não engessa: a estatística da partida continua mandando', () => {
+  const emJogo = computeSignals(fixture({ minute: 70 }), null);
+  const anchor = buildMarketAnchor(marketQuotes(2_000, 3_600, 3_500, 3_000, 1_400), 2.45)!;
+  const model = buildGoalModel(emJogo, LEAGUE, { pressureBoost: 0.5, anchor });
+  const congelado = anchor.lambdaTotal * (emJogo.remainingMinutes / 90);
+  assert.ok(model.lambdaTotal > congelado, 'o observado precisa corrigir a âncora ao vivo');
+  assert.equal(model.usedMarketAnchor, true);
+});
+
+test('discordar do mercado inteiro além do teto não vira dica', () => {
+  // Over 0.5 aos 34' num 0 x 0: o modelo estima ~93%. Uma casa oferecendo
+  // 1,58 pagaria muito acima da odd justa, mas nenhuma casa real oferece isso
+  // — a leitura provável é dado ruim, não oportunidade.
+  const absurdo = evaluateFixture({
+    fixture: fixture(),
+    league: LEAGUE,
+    strategies: STRATEGIES,
+    quotes: [quote('OVER_0_5', 'OVER', 1_580, 0.5)],
+    monitored: true,
+    now: NOW,
+  });
+  const bloqueado = absurdo.candidates.find((c) => c.strategyKey === 'LIVE_OVER_0_5')!;
+  assert.equal(bloqueado.applicable, false);
+  assert.equal(bloqueado.valueBps, null);
+  assert.notEqual(bloqueado.state, 'ENTRADA_IDENTIFICADA');
+  assert.ok((bloqueado.reason ?? '').includes('discorda do mercado'));
+  assert.equal(identifiedEntries(absurdo).length, 0);
+});
+
+test('o teto olha o consenso, não a melhor casa: garimpar preço continua valendo', () => {
+  // Consenso em 1,25 (três casas) e uma quarta pagando 1,40. A discordância
+  // contra o consenso é aceitável, então a dica sai — na melhor casa.
+  const quotes = [
+    quote('OVER_0_5', 'OVER', 1_250, 0.5, 'Bet365'),
+    quote('OVER_0_5', 'OVER', 1_240, 0.5, 'Pinnacle'),
+    quote('OVER_0_5', 'OVER', 1_260, 0.5, 'Betfair'),
+    quote('OVER_0_5', 'OVER', 1_400, 0.5, 'CasaGenerosa'),
+  ];
+  const evaluation = evaluateFixture({ fixture: fixture(), league: LEAGUE, strategies: STRATEGIES, quotes, monitored: true, now: NOW });
+  const over05 = evaluation.candidates.find((c) => c.strategyKey === 'LIVE_OVER_0_5')!;
+  assert.equal(over05.applicable, true);
+  assert.equal(over05.oddMilli, 1_400, 'a dica tem de apontar a melhor casa');
+  assert.equal(over05.bookmaker, 'CasaGenerosa');
+  assert.ok(over05.valueBps !== null && over05.valueBps > 0);
 });

@@ -19,6 +19,7 @@ import type {
   Selection,
   TipResult,
 } from '../models';
+import type { MarketAnchor } from '../market-anchor';
 import type { ComponentScores } from '../scoring';
 import type { FixtureSignals } from '../signals';
 
@@ -27,6 +28,12 @@ export interface StrategyContext {
   signals: FixtureSignals;
   league: LeagueCatalogEntry;
   prediction: NormalizedPrediction | null;
+  /**
+   * Força dos times lida do preço de mercado. null quando não há cotação de
+   * 1X2 nem de total — nesse caso o modelo não tem como distinguir os times,
+   * e no pré-jogo cada estratégia decide se ainda faz sentido opinar.
+   */
+  anchor: MarketAnchor | null;
   config: StrategyConfig;
   now: Date;
 }
