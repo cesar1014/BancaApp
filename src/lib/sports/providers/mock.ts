@@ -328,13 +328,31 @@ function buildOdds(script: MockScript, fixture: NormalizedFixture, now: Date): O
   push('NEXT_GOAL', 'AWAY', null, anyGoal * (1 - homeShare));
 
   if (fixture.statistics) {
+    /**
+     * Escanteios e cartões seguem a mesma regra dos gols: a casa precifica
+     * pelo ritmo que o jogo está tendo, não pela média da competição. Um jogo
+     * com 11 escanteios aos 74 minutos não recebe a odd de um jogo morno.
+     *
+     * Enquanto o mock usava só a média e o motor usava o ritmo observado, os
+     * dois discordavam e apareciam "oportunidades" de +70% que não existem.
+     */
+    const paced = (current: number, baseMilli: number, weight: number) => {
+      const basePerMinute = baseMilli / 1000 / 90;
+      const observedPerMinute = minute >= 5 ? current / minute : basePerMinute;
+      const w = Math.min(weight, minute / 60);
+      return (w * observedPerMinute + (1 - w) * basePerMinute) * remaining;
+    };
+
     const corners = (fixture.statistics.home.corners ?? 0) + (fixture.statistics.away.corners ?? 0);
-    const cornerLambda = script.cornersPerMinute * remaining;
+    const cornerLambda = paced(corners, script.league.avgCornersMilli, 0.7);
     for (const extra of [1, 2, 3]) {
       push('CORNERS', 'OVER', corners + extra + 0.5, poissonAtLeast(extra + 1, cornerLambda));
     }
-    const cards = (fixture.statistics.home.yellowCards ?? 0) + (fixture.statistics.home.redCards ?? 0) + (fixture.statistics.away.yellowCards ?? 0) + (fixture.statistics.away.redCards ?? 0);
-    const cardLambda = ((script.league.avgCardsMilli / 1000) / 90) * remaining;
+
+    const cards =
+      (fixture.statistics.home.yellowCards ?? 0) + (fixture.statistics.home.redCards ?? 0) +
+      (fixture.statistics.away.yellowCards ?? 0) + (fixture.statistics.away.redCards ?? 0);
+    const cardLambda = paced(cards, script.league.avgCardsMilli, 0.7);
     for (const extra of [1, 2]) {
       push('CARDS', 'OVER', cards + extra + 0.5, poissonAtLeast(extra + 1, cardLambda));
     }

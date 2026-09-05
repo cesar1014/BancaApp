@@ -46,8 +46,12 @@ export const cornersStrategy: StrategyModule = {
     const current = signals.totals.corners;
     if (current === null) return [notApplicable('OVER', 'provedor sem escanteios')];
 
+    // A pressão já está no ritmo de escanteios que o jogo vem produzindo, e
+    // esse ritmo é a base do cálculo. Aplicá-la de novo por inteiro contaria
+    // duas vezes; depois dos primeiros minutos o ajuste fica estreito.
     const pressure = signals.pressureIndex ?? 0.45;
-    const boost = Math.min(1.6, Math.max(0.7, 1 + (pressure - 0.45) * 0.9));
+    const range = signals.minute >= 5 ? 0.15 : 0.6;
+    const boost = Math.min(1 + range, Math.max(1 - range, 1 + (pressure - 0.45) * 0.9));
     const lambda = remainingLambda(
       current,
       signals.minute,
