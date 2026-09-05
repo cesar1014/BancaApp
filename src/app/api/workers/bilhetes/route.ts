@@ -11,7 +11,7 @@ export const maxDuration = 60;
  *   POST /api/workers/bilhetes?job=collect   coleta todas as fontes ativas (respeita cooldown)
  *   POST /api/workers/bilhetes?job=verify    confere odds reais dos bilhetes abertos
  *   POST /api/workers/bilhetes?job=settle    liquida o que já terminou
- *   POST /api/workers/bilhetes?job=all       os três, em ordem (padrão)
+ *   POST /api/workers/bilhetes                os três, em ordem (padrão)
  *   &force=1                                 ignora o cooldown das fontes
  *
  * Autenticação: Authorization: Bearer <TIPS_WORKER_SECRET ou WORKER_SECRET>.

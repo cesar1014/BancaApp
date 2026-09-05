@@ -2,11 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "path": "/api/workers/bilhetes?job=all",
+      "path": "/api/workers/bilhetes",
       "schedule": "0 11 * * *"
     },
     {
-      "path": "/api/workers/sports?job=all",
+      "path": "/api/workers/sports",
       "schedule": "0 17 * * *"
     }
   ]
