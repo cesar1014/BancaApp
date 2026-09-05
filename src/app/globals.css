@@ -1,0 +1,214 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Design system "Placar"
+   Carvão levemente quente + UM acento lima usado como superfície, não só como
+   texto. Lucro e acento são a MESMA cor — o dinheiro é a identidade. Vermelho
+   é igualmente saturado e assumido. Âmbar só para exposição e atenção.
+   Nada mais: energia de app de esporte, sem estética de cassino.
+   ========================================================================== */
+:root {
+  /* Superfícies — carvão quente, nunca preto-azulado clínico */
+  --c-canvas: 17 16 14;
+  --c-surface: 26 24 21;
+  --c-elevated: 36 33 29;
+  --c-sunken: 12 11 10;
+  --c-line: 48 44 39;
+  --c-line-strong: 74 68 60;
+
+  /* Tinta */
+  --c-ink: 246 244 240;
+  --c-ink-muted: 173 166 155;
+  --c-ink-faint: 138 131 121;
+  --c-ink-invert: 16 15 13;
+
+  /* Um acento, um negativo, um alerta */
+  --c-accent: 198 249 76;
+  --c-accent-deep: 141 199 33;
+  --c-accent-soft: 44 52 24;
+  --c-negative: 255 92 82;
+  --c-warning: 255 176 46;
+  --c-neutral: 138 131 121;
+
+  /* Lucro é o acento. Mantido como token próprio para os gráficos SVG. */
+  --c-positive: 198 249 76;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    @apply border-line;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Números sempre alinhados em colunas */
+  .tnum,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  ::selection {
+    background: rgb(var(--c-accent) / 0.28);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--c-line-strong));
+    border-radius: 999px;
+    border: 3px solid rgb(var(--c-canvas));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--c-ink-faint));
+  }
+
+  /* Foco lima, espesso — visível sobre carvão e sobre o bloco herói */
+  :focus-visible {
+    outline: 2.5px solid rgb(var(--c-accent));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Cartão: superfície elevada de cantos generosos. */
+  .card {
+    @apply overflow-hidden rounded-lg border border-line bg-surface shadow-raised;
+  }
+
+  /* Cabeçalho colado no corpo não precisa do respiro dobrado. */
+  .card-head + .card-body {
+    @apply pt-0;
+  }
+
+  /* Rótulo: minúsculo, caixa-alta, tracking largo. O contraponto do número. */
+  .lbl {
+    @apply text-2xs font-extrabold uppercase text-ink-faint;
+  }
+
+  /* Rótulo sobre o bloco lima */
+  .lbl-on {
+    @apply text-2xs font-extrabold uppercase text-ink-invert/60;
+  }
+
+  /**
+   * Bloco herói: hierarquia invertida. Superfície de cor sólida com tinta
+   * escura em cima — o lucro do mês é a maior coisa da tela.
+   */
+  .hero-block {
+    @apply relative overflow-hidden rounded-2xl bg-accent p-5 text-ink-invert shadow-hero sm:p-6;
+  }
+  .hero-block::after {
+    content: '';
+    @apply pointer-events-none absolute inset-0;
+    background: radial-gradient(
+      28rem 16rem at 108% -30%,
+      rgb(255 255 255 / 0.38),
+      transparent 62%
+    );
+  }
+  .hero-block > * {
+    @apply relative z-[1];
+  }
+
+  .field-label {
+    @apply lbl mb-2 block;
+  }
+
+  .input-base {
+    @apply block min-h-[46px] w-full rounded-md border border-line bg-elevated px-3.5 py-2.5
+           text-[15px] text-ink placeholder:text-ink-faint transition-colors
+           focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .table-head {
+    @apply sticky top-0 z-10 bg-surface text-left text-2xs font-extrabold uppercase text-ink-faint;
+  }
+
+  .row-hover {
+    @apply transition-colors hover:bg-elevated/60;
+  }
+
+  /* Barra fixa translúcida (header mobile, tab bar, bottom sheet). */
+  .bar-blur {
+    @apply border-line bg-surface/[0.82] backdrop-blur-bar;
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+  }
+
+  /* Medidor de segurança: o controle de risco tem o peso visual do lucro. */
+  .gauge {
+    @apply rounded-md border border-line bg-elevated/55 p-4;
+  }
+
+  /* Faixa de brilho do skeleton */
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-elevated;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--c-line-strong) / 0.5),
+      transparent
+    );
+  }
+}
+
+@layer utilities {
+  .text-positive-strong {
+    color: rgb(var(--c-positive));
+  }
+  .text-negative-strong {
+    color: rgb(var(--c-negative));
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  /* Respiro para a barra inferior fixa do mobile. */
+  .pb-tabbar {
+    padding-bottom: calc(theme('spacing.tab') + env(safe-area-inset-bottom));
+  }
+}
+
+/* O movimento é decoração: quem pediu para desligar, desliga. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

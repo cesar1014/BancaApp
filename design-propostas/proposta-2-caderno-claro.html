@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banca Compartilhada — Caderno Claro</title>
+<style>
+/* ============================================================
+   PROPOSTA 2 — "CADERNO CLARO"
+   Relatório editorial impresso. Papel quente, tinta escura,
+   hairlines, serif nos títulos e nos números-âncora.
+   ============================================================ */
+
+:root {
+  --c-canvas: 250 248 244;
+  --c-surface: 255 254 251;
+  --c-elevated: 243 240 233;
+  --c-line: 224 219 209;
+  --c-line-strong: 186 179 166;
+  --c-rule: 26 26 24;
+  --c-ink: 26 26 24;
+  --c-ink-muted: 90 87 80;
+  --c-ink-faint: 110 106 97;
+  --c-accent: 20 74 60;
+  --c-accent-soft: 226 236 231;
+  --c-positive: 22 92 62;
+  --c-negative: 150 36 32;
+  --c-warning: 140 92 12;
+  --c-neutral: 118 112 102;
+
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+
+  --r-sm: 2px;
+  --r-md: 3px;
+  --r-lg: 4px;
+  --shadow-pop: 0 24px 60px -24px rgb(26 26 24 / .30), 0 2px 6px rgb(26 26 24 / .06);
+  --shadow-raise: 0 1px 0 rgb(26 26 24 / .04);
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --c-canvas: 20 19 17;
+  --c-surface: 28 27 24;
+  --c-elevated: 37 35 31;
+  --c-line: 56 53 47;
+  --c-line-strong: 88 83 74;
+  --c-rule: 214 208 195;
+  --c-ink: 240 236 228;
+  --c-ink-muted: 178 172 160;
+  --c-ink-faint: 146 140 128;
+  --c-accent: 126 186 158;
+  --c-accent-soft: 33 48 42;
+  --c-positive: 116 187 141;
+  --c-negative: 226 130 118;
+  --c-warning: 214 165 84;
+  --c-neutral: 150 144 132;
+  --shadow-pop: 0 24px 60px -20px rgb(0 0 0 / .7), 0 0 0 1px rgb(255 255 255 / .05);
+  --shadow-raise: none;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: rgb(var(--c-canvas));
+  color: rgb(var(--c-ink));
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+.tnum, table, .num { font-variant-numeric: tabular-nums; }
+
+h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 600; margin: 0; letter-spacing: -0.006em; }
+p { margin: 0; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible {
+  outline: 2px solid rgb(var(--c-accent));
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+::selection { background: rgb(var(--c-accent) / .16); }
+
+/* ---------- utilitários editoriais ---------- */
+.smallcaps {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: rgb(var(--c-ink-faint));
+}
+.italic { font-style: italic; }
+.serif { font-family: var(--font-serif); }
+.pos { color: rgb(var(--c-positive)); }
+.neg { color: rgb(var(--c-negative)); }
+.muted { color: rgb(var(--c-ink-muted)); }
+.faint { color: rgb(var(--c-ink-faint)); }
+.wrap-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ---------- masthead ---------- */
+.masthead {
+  position: sticky; top: 0; z-index: 40;
+  background: rgb(var(--c-canvas) / .96);
+  backdrop-filter: saturate(180%) blur(8px);
+  border-bottom: 1px solid rgb(var(--c-line));
+}
+.masthead-in {
+  max-width: 1180px; margin: 0 auto;
+  padding: 0 24px;
+  display: flex; align-items: center; gap: 18px;
+  min-height: 62px;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.brand-mark {
+  font-family: var(--font-serif); font-size: 19px; font-weight: 600;
+  letter-spacing: .01em; white-space: nowrap;
+}
+.brand-edition {
+  font-family: var(--font-serif); font-style: italic; font-size: 13px;
+  color: rgb(var(--c-ink-faint)); white-space: nowrap;
+}
+.mast-nav { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.navlink {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 11px;
+  font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  color: rgb(var(--c-ink-muted));
+  background: none; border: 0; cursor: pointer;
+  text-decoration: none; white-space: nowrap;
+  border-radius: var(--r-sm);
+}
+.navlink:hover { color: rgb(var(--c-ink)); background: rgb(var(--c-elevated)); }
+.navlink[aria-current="page"] { color: rgb(var(--c-ink)); }
+.navlink[aria-current="page"]::after {
+  content: ""; position: absolute; left: 11px; right: 11px; bottom: -1px;
+  height: 2px; background: rgb(var(--c-accent));
+}
+.nav-sep { width: 1px; height: 20px; background: rgb(var(--c-line)); margin: 0 8px; }
+.dd { position: relative; }
+.dd-menu {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  min-width: 208px; padding: 6px;
+  background: rgb(var(--c-surface));
+  border: 1px solid rgb(var(--c-line-strong));
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-pop);
+  display: none;
+}
+.dd-menu[data-open="true"] { display: block; }
+.dd-menu a {
+  display: block; padding: 9px 12px; min-height: 40px;
+  font-size: 13.5px; text-decoration: none; color: rgb(var(--c-ink-muted));
+  border-radius: var(--r-sm); line-height: 22px;
+}
+.dd-menu a:hover { background: rgb(var(--c-elevated)); color: rgb(var(--c-ink)); }
+.dd-menu a[aria-current="page"] { color: rgb(var(--c-accent)); font-weight: 600; }
+.mast-tools { display: flex; align-items: center; gap: 8px; margin-left: 14px; }
+.iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; padding: 0;
+  background: none; border: 1px solid transparent; border-radius: var(--r-md);
+  color: rgb(var(--c-ink-muted)); cursor: pointer;
+}
+.iconbtn:hover { background: rgb(var(--c-elevated)); color: rgb(var(--c-ink)); border-color: rgb(var(--c-line)); }
+.whoami { text-align: right; line-height: 1.25; }
+.whoami b { font-size: 13px; font-weight: 600; display: block; }
+.hamburger { display: none; }
+
+/* ---------- gaveta mobile ---------- */
+.scrim {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgb(26 26 24 / .38); border: 0; padding: 0; margin: 0;
+  display: none; cursor: default;
+}
+.scrim[data-open="true"] { display: block; }
+.drawer {
+  position: fixed; z-index: 61; top: 0; left: 0; bottom: 0;
+  width: min(84vw, 320px);
+  background: rgb(var(--c-canvas));
+  border-right: 1px solid rgb(var(--c-line-strong));
+  transform: translateX(-100%);
+  transition: transform .22s cubic-bezier(.2,.8,.3,1);
+  display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.drawer[data-open="true"] { transform: none; }
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 14px 18px; border-bottom: 1px solid rgb(var(--c-line));
+}
+.drawer nav { padding: 14px 12px 24px; }
+.drawer-group + .drawer-group { margin-top: 18px; }
+.drawer-group > p { padding: 0 10px 6px; }
+.drawer-group a {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 10px; border-radius: var(--r-sm);
+  text-decoration: none; font-size: 15px; color: rgb(var(--c-ink-muted));
+}
+.drawer-group a[aria-current="page"] {
+  color: rgb(var(--c-ink)); font-weight: 600;
+  background: rgb(var(--c-accent-soft));
+  box-shadow: inset 2px 0 0 rgb(var(--c-accent));
+}
+
+/* ---------- página / colunas ---------- */
+.sheet { max-width: 1180px; margin: 0 auto; padding: 0 24px 96px; }
+.measure { max-width: 68ch; }
+.pagehead { padding: 48px 0 0; }
+.kicker {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.pagehead h1 {
+  font-size: clamp(30px, 5vw, 46px); line-height: 1.08; letter-spacing: -0.02em;
+}
+.pagehead .dek {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: clamp(15px, 2vw, 18px); line-height: 1.55;
+  color: rgb(var(--c-ink-muted)); margin-top: 12px;
+}
+.byline {
+  margin-top: 18px; padding-top: 12px;
+  border-top: 1px solid rgb(var(--c-line));
+  display: flex; flex-wrap: wrap; gap: 6px 20px;
+  font-size: 12.5px; color: rgb(var(--c-ink-faint));
+}
+.byline b { color: rgb(var(--c-ink-muted)); font-weight: 600; }
+
+/* capítulos */
+.chapter { margin-top: 52px; }
+.chapter > header { border-top: 2px solid rgb(var(--c-rule)); padding-top: 14px; margin-bottom: 22px; }
+.chapter.sub > header { border-top-width: 1px; }
+.ch-line { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ch-num { font-family: var(--font-serif); font-style: italic; font-size: 15px; color: rgb(var(--c-ink-faint)); }
+.chapter h2 { font-size: clamp(21px, 2.6vw, 27px); line-height: 1.2; }
+.chapter .note { margin-top: 6px; font-size: 13.5px; color: rgb(var(--c-ink-muted)); max-width: 68ch; }
+.ch-action { margin-left: auto; }
+
+/* prosa do sumário */
+.lede { font-family: var(--font-serif); font-size: 18.5px; line-height: 1.62; max-width: 66ch; }
+.lede + .lede { margin-top: 14px; }
+.dropcap::first-letter {
+  float: left; font-family: var(--font-serif); font-size: 62px; line-height: .82;
+  padding: 6px 10px 0 0; color: rgb(var(--c-accent)); font-weight: 600;
+}
+.lede b { font-weight: 600; }
+
+/* figuras-âncora (os 4 números) */
+.figures {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid rgb(var(--c-line));
+  border-bottom: 2px solid rgb(var(--c-rule));
+  margin-top: 30px;
+}
+.figure { padding: 20px 22px; border-left: 1px solid rgb(var(--c-line)); }
+.figure:first-child { border-left: 0; padding-left: 0; }
+.figure .num {
+  font-family: var(--font-serif); font-size: clamp(26px, 3.4vw, 36px);
+  line-height: 1.05; margin-top: 8px; letter-spacing: -0.02em; font-weight: 600;
+}
+.figure .sub { margin-top: 7px; font-size: 12.5px; color: rgb(var(--c-ink-faint)); line-height: 1.45; }
+
+/* barra de progresso régua */
+.rule-bar {
+  position: relative; height: 12px;
+  background: rgb(var(--c-elevated));
+  border: 1px solid rgb(var(--c-line-strong));
+  border-radius: 1px; overflow: hidden;
+}
+.rule-bar > i { display: block; height: 100%; background: rgb(var(--c-accent)); }
+.rule-bar.thin { height: 8px; }
+.rule-bar.warn > i { background: rgb(var(--c-warning)); }
+.rule-bar.bad > i { background: rgb(var(--c-negative)); }
+.rule-scale { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11.5px; color: rgb(var(--c-ink-faint)); }
+.ticks { position: absolute; inset: 0; pointer-events: none; }
+.ticks span { position: absolute; top: 0; bottom: 0; width: 1px; background: rgb(var(--c-canvas) / .8); }
+
+/* tabelas de relatório */
+table.report { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.report th {
+  font-family: var(--font-sans); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: rgb(var(--c-ink-muted));
+  text-align: left; padding: 0 12px 9px; border-bottom: 2px solid rgb(var(--c-rule));
+  white-space: nowrap;
+}
+table.report th:first-child, table.report td:first-child { padding-left: 0; }
+table.report th:last-child, table.report td:last-child { padding-right: 0; }
+table.report td { padding: 14px 12px; border-bottom: 1px solid rgb(var(--c-line)); vertical-align: top; }
+table.report tbody tr:hover td { background: rgb(var(--c-elevated) / .7); }
+table.report .r { text-align: right; }
+table.report .c { text-align: center; }
+table.report tr.total td {
+  border-top: 3px double rgb(var(--c-rule)); border-bottom: 0;
+  font-weight: 700; padding-top: 12px; background: none;
+}
+table.report tr.total:hover td { background: none; }
+.cell-main { font-weight: 500; }
+.cell-sub { font-size: 12.5px; color: rgb(var(--c-ink-faint)); margin-top: 2px; }
+
+/* selos de status */
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 1px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  border: 1px solid currentColor; white-space: nowrap;
+}
+.tag.green { color: rgb(var(--c-positive)); background: rgb(var(--c-positive) / .07); }
+.tag.red { color: rgb(var(--c-negative)); background: rgb(var(--c-negative) / .07); }
+.tag.void { color: rgb(var(--c-neutral)); background: rgb(var(--c-neutral) / .07); }
+.tag.cash { color: rgb(var(--c-warning)); background: rgb(var(--c-warning) / .08); }
+.tag.open { color: rgb(var(--c-accent)); background: rgb(var(--c-accent) / .07); }
+
+/* listas com condutores pontilhados */
+.leaders { display: grid; gap: 0; }
+.leader { display: flex; align-items: baseline; gap: 8px; padding: 9px 0; border-bottom: 1px solid rgb(var(--c-line)); }
+.leader dt { color: rgb(var(--c-ink-muted)); font-size: 13.5px; white-space: nowrap; }
+.leader .dots { flex: 1 1 auto; border-bottom: 1px dotted rgb(var(--c-line-strong)); transform: translateY(-4px); min-width: 12px; }
+.leader dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14.5px; }
+
+/* blocos */
+.panel {
+  border: 1px solid rgb(var(--c-line));
+  background: rgb(var(--c-surface));
+  border-radius: var(--r-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-raise);
+}
+.panel.plain { background: none; box-shadow: none; }
+.pullquote {
+  border-left: 3px solid rgb(var(--c-accent));
+  padding: 6px 0 6px 22px; margin: 34px 0 0;
+  font-family: var(--font-serif); font-style: italic;
+  font-size: clamp(17px, 2.2vw, 20px); line-height: 1.5; max-width: 60ch;
+}
+.pullquote cite { display: block; margin-top: 10px; font-style: normal; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: rgb(var(--c-ink-faint)); font-family: var(--font-sans); }
+.callout {
+  border: 1px solid rgb(var(--c-line-strong));
+  border-left: 3px solid rgb(var(--c-warning));
+  background: rgb(var(--c-warning) / .06);
+  padding: 14px 16px; border-radius: var(--r-sm);
+  font-size: 13.5px; line-height: 1.55;
+}
+.callout.ok { border-left-color: rgb(var(--c-accent)); background: rgb(var(--c-accent) / .05); }
+.callout.bad { border-left-color: rgb(var(--c-negative)); background: rgb(var(--c-negative) / .06); }
+.callout b { display: block; font-family: var(--font-serif); font-size: 15.5px; margin-bottom: 3px; }
+
+/* notas de rodapé */
+sup.fn { font-size: 10px; font-weight: 700; color: rgb(var(--c-accent)); vertical-align: super; line-height: 0; margin-left: 2px; font-family: var(--font-sans); }
+.footnotes { margin-top: 56px; border-top: 1px solid rgb(var(--c-line)); padding-top: 16px; max-width: 78ch; }
+.footnotes ol { margin: 10px 0 0; padding-left: 18px; }
+.footnotes li { font-size: 12.5px; line-height: 1.6; color: rgb(var(--c-ink-muted)); padding-left: 4px; margin-bottom: 7px; }
+.colophon { margin-top: 34px; padding-top: 14px; border-top: 2px solid rgb(var(--c-rule)); font-size: 12px; color: rgb(var(--c-ink-faint)); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+
+/* grelhas */
+.grid { display: grid; gap: 26px; }
+.g-2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.g-3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+.g-4 { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.g-32 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.g-23 { grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr); }
+
+/* botões */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 40px; padding: 0 16px;
+  font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  border-radius: var(--r-md); cursor: pointer;
+  border: 1px solid rgb(var(--c-line-strong));
+  background: rgb(var(--c-surface)); color: rgb(var(--c-ink));
+  text-decoration: none; transition: background .12s, border-color .12s, color .12s;
+}
+.btn:hover { background: rgb(var(--c-elevated)); border-color: rgb(var(--c-ink-faint)); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: rgb(var(--c-accent)); border-color: rgb(var(--c-accent)); color: rgb(var(--c-surface)); }
+html[data-theme="dark"] .btn.primary { color: rgb(20 19 17); }
+.btn.primary:hover { background: rgb(var(--c-accent) / .88); border-color: rgb(var(--c-accent) / .88); }
+.btn.ghost { background: none; border-color: transparent; color: rgb(var(--c-accent)); padding: 0 8px; }
+.btn.ghost:hover { background: rgb(var(--c-accent-soft)); }
+.btn.sm { min-height: 36px; font-size: 12px; padding: 0 12px; }
+
+/* campos — estilo caderno: régua embaixo */
+.field { display: block; }
+.field > span.lbl {
+  display: block; margin-bottom: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: rgb(var(--c-ink-muted));
+}
+.inp {
+  width: 100%; min-height: 42px; padding: 8px 2px;
+  font: inherit; font-size: 14.5px;
+  color: rgb(var(--c-ink));
+  background: none;
+  border: 0; border-bottom: 1px solid rgb(var(--c-line-strong));
+  border-radius: 0;
+  transition: border-color .12s, box-shadow .12s;
+}
+.inp::placeholder { color: rgb(var(--c-ink-faint) / .8); }
+.inp:hover { border-bottom-color: rgb(var(--c-ink-faint)); }
+.inp:focus { outline: none; border-bottom-color: rgb(var(--c-accent)); box-shadow: 0 1px 0 0 rgb(var(--c-accent)); }
+.inp:focus-visible { outline: none; }
+select.inp { appearance: none; padding-right: 22px; background-image: none; cursor: pointer; }
+.sel-wrap { position: relative; }
+.sel-wrap svg { position: absolute; right: 2px; top: 50%; transform: translateY(-30%); pointer-events: none; color: rgb(var(--c-ink-faint)); }
+.field-hint { margin-top: 5px; font-size: 12px; color: rgb(var(--c-ink-faint)); }
+.field-hint.danger { color: rgb(var(--c-negative)); font-weight: 600; }
+
+/* modal */
+.modal-scrim {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgb(26 26 24 / .42);
+  display: none; align-items: flex-start; justify-content: center;
+  padding: 28px 16px; overflow-y: auto;
+}
+.modal-scrim[data-open="true"] { display: flex; }
+.modal {
+  width: 100%; max-width: 660px;
+  background: rgb(var(--c-canvas));
+  border: 1px solid rgb(var(--c-line-strong));
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-pop);
+  animation: rise .18s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.modal-head { display: flex; align-items: flex-start; gap: 16px; padding: 22px 26px 14px; border-bottom: 2px solid rgb(var(--c-rule)); }
+.modal-body { padding: 22px 26px; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 26px 22px; border-top: 1px solid rgb(var(--c-line)); }
+
+/* toast */
+.toast {
+  position: fixed; z-index: 90; right: 20px; bottom: 20px;
+  max-width: 330px; padding: 12px 16px;
+  background: rgb(var(--c-surface)); border: 1px solid rgb(var(--c-line-strong));
+  border-left: 3px solid rgb(var(--c-accent));
+  border-radius: var(--r-md); box-shadow: var(--shadow-pop);
+  font-size: 13.5px; opacity: 0; transform: translateY(8px);
+  transition: opacity .2s, transform .2s; pointer-events: none;
+}
+.toast[data-open="true"] { opacity: 1; transform: none; }
+
+/* calendário de metas */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 1px; background: rgb(var(--c-line)); border: 1px solid rgb(var(--c-line)); }
+.cal .dow { background: rgb(var(--c-canvas)); padding: 8px 6px; text-align: center; }
+.cal .day { background: rgb(var(--c-surface)); min-height: 96px; padding: 8px 9px; display: flex; flex-direction: column; gap: 3px; }
+.cal .day.empty { background: rgb(var(--c-elevated) / .5); min-height: 96px; }
+.cal .day.future { background: rgb(var(--c-canvas)); }
+.cal .day.today { box-shadow: inset 0 0 0 2px rgb(var(--c-accent)); }
+.cal .dnum { font-family: var(--font-serif); font-size: 15px; font-weight: 600; }
+.cal .dval { font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: auto; }
+.cal .dgoal { font-size: 11px; color: rgb(var(--c-ink-faint)); font-variant-numeric: tabular-nums; }
+.cal .dflag { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+
+/* estado vazio */
+.empty { text-align: center; padding: 54px 20px; border: 1px dashed rgb(var(--c-line-strong)); border-radius: var(--r-lg); }
+.empty h3 { font-size: 19px; margin-bottom: 6px; }
+
+/* login */
+.login-wrap { min-height: 100dvh; display: grid; place-items: center; padding: 40px 20px; }
+.login-card { width: 100%; max-width: 430px; }
+.login-rule { height: 1px; background: rgb(var(--c-line)); margin: 26px 0; }
+
+/* gráficos */
+.chart-shell { width: 100%; }
+.chart-shell svg { display: block; width: 100%; height: auto; }
+figcaption { margin-top: 12px; font-size: 12.5px; color: rgb(var(--c-ink-muted)); line-height: 1.55; max-width: 74ch; }
+figcaption b { font-family: var(--font-sans); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: rgb(var(--c-ink-faint)); margin-right: 6px; }
+
+/* filtros do livro de entradas */
+#filtros { display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 18px 20px; align-items: end; }
+@media (max-width: 860px) { #filtros { grid-template-columns: 1fr 1fr; } #filtros > button { grid-column: 1 / -1; } }
+@media (max-width: 520px) { #filtros { grid-template-columns: 1fr; } }
+
+/* responsivo */
+@media (max-width: 1080px) {
+  .g-32, .g-23 { grid-template-columns: minmax(0,1fr); }
+  .g-4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 900px) {
+  .mast-nav, .whoami { display: none; }
+  .hamburger { display: inline-flex; }
+  .masthead-in { gap: 12px; }
+  .mast-tools { margin-left: auto; }
+  .figures { grid-template-columns: repeat(2, 1fr); }
+  .figure { border-left: 0; padding: 18px 0; border-top: 1px solid rgb(var(--c-line)); }
+  .figure:nth-child(-n+2) { border-top: 0; }
+  .figure:nth-child(even) { padding-left: 22px; border-left: 1px solid rgb(var(--c-line)); }
+  .g-2, .g-3 { grid-template-columns: minmax(0,1fr); }
+  .sheet { padding: 0 18px 80px; }
+  .cal .day, .cal .day.empty { min-height: 82px; }
+}
+@media (max-width: 560px) {
+  body { font-size: 14.5px; }
+  .sheet { padding: 0 14px 72px; }
+  .masthead-in { padding: 0 14px; }
+  .brand-edition { display: none; }
+  .figures { grid-template-columns: 1fr; }
+  .figure, .figure:nth-child(even) { border-left: 0; padding: 16px 0; border-top: 1px solid rgb(var(--c-line)); }
+  .figure:first-child { border-top: 0; }
+  .g-4 { grid-template-columns: 1fr; }
+  .lede { font-size: 17px; }
+  .cal { font-size: 12px; }
+  .cal .day, .cal .day.empty { min-height: 68px; padding: 6px; }
+  .cal .dgoal { display: none; }
+  .modal-head, .modal-body, .modal-foot { padding-left: 18px; padding-right: 18px; }
+  .toast { left: 14px; right: 14px; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- =========================== MASTHEAD =========================== -->
+<header class="masthead" id="masthead">
+  <div class="masthead-in">
+    <button class="iconbtn hamburger" id="btnDrawer" aria-label="Abrir menu de seções" aria-expanded="false">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+
+    <a class="brand" href="#dashboard" data-go="dashboard" style="text-decoration:none">
+      <span class="brand-mark">Banca Compartilhada</span>
+      <span class="brand-edition">edição de setembro de 2026</span>
+    </a>
+
+    <nav class="mast-nav" aria-label="Seções principais">
+      <a class="navlink" href="#dashboard" data-nav="dashboard">Dashboard</a>
+      <a class="navlink" href="#entradas" data-nav="entradas">Entradas</a>
+      <a class="navlink" href="#metas" data-nav="metas">Metas diárias</a>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <span class="dd">
+        <button class="navlink" data-dd="ddAcomp" aria-expanded="false" aria-haspopup="true" id="ddBtnAcomp">
+          Acompanhamento
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dd-menu" id="ddAcomp" role="menu" aria-labelledby="ddBtnAcomp">
+          <a href="#historico" data-nav="historico" role="menuitem">Histórico</a>
+          <a href="#estatisticas" data-nav="estatisticas" role="menuitem">Estatísticas</a>
+          <a href="#socios" data-nav="socios" role="menuitem">Sócios</a>
+          <a href="#movimentacoes" data-nav="movimentacoes" role="menuitem">Movimentações</a>
+        </div>
+      </span>
+      <span class="dd">
+        <button class="navlink" data-dd="ddAdmin" aria-expanded="false" aria-haspopup="true" id="ddBtnAdmin">
+          Administração
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dd-menu" id="ddAdmin" role="menu" aria-labelledby="ddBtnAdmin">
+          <a href="#fechamento" data-nav="fechamento" role="menuitem">Fechamento</a>
+          <a href="#configuracoes" data-nav="configuracoes" role="menuitem">Configurações</a>
+          <a href="#auditoria" data-nav="auditoria" role="menuitem">Auditoria</a>
+        </div>
+      </span>
+    </nav>
+
+    <div class="mast-tools">
+      <div class="whoami">
+        <b>Cesar Lima</b>
+        <span class="smallcaps" style="font-size:10px">Administrador</span>
+      </div>
+      <button class="iconbtn" id="btnTheme" aria-label="Alternar entre modo claro e escuro" title="Alternar tema">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.2 12H2M22 12h-2.2M6.3 6.3 4.8 4.8M19.2 19.2l-1.5-1.5M17.7 6.3l1.5-1.5M4.8 19.2l1.5-1.5"/></svg>
+      </button>
+      <button class="iconbtn" data-go="login" aria-label="Sair da conta" title="Sair">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 17v1.5A2.5 2.5 0 0 1 12.5 21h-6A2.5 2.5 0 0 1 4 18.5v-13A2.5 2.5 0 0 1 6.5 3h6A2.5 2.5 0 0 1 15 5.5V7"/><path d="M10 12h11m0 0-3.2-3.2M21 12l-3.2 3.2"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- =========================== GAVETA MOBILE =========================== -->
+<button class="scrim" id="scrim" tabindex="-1" aria-label="Fechar menu"></button>
+<aside class="drawer" id="drawer" aria-label="Menu de seções">
+  <div class="drawer-head">
+    <span>
+      <span class="brand-mark" style="font-size:16px">Banca Compartilhada</span>
+      <span class="smallcaps" style="display:block;font-size:10px">Cesar Lima · Administrador</span>
+    </span>
+    <button class="iconbtn" id="btnDrawerClose" aria-label="Fechar menu">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <nav id="drawerNav">
+    <div class="drawer-group">
+      <p class="smallcaps">Operação</p>
+      <a href="#dashboard" data-nav="dashboard">Dashboard</a>
+      <a href="#entradas" data-nav="entradas">Entradas</a>
+      <a href="#metas" data-nav="metas">Metas diárias</a>
+    </div>
+    <div class="drawer-group">
+      <p class="smallcaps">Acompanhamento</p>
+      <a href="#historico" data-nav="historico">Histórico</a>
+      <a href="#estatisticas" data-nav="estatisticas">Estatísticas</a>
+      <a href="#socios" data-nav="socios">Sócios</a>
+      <a href="#movimentacoes" data-nav="movimentacoes">Movimentações</a>
+    </div>
+    <div class="drawer-group">
+      <p class="smallcaps">Administração</p>
+      <a href="#fechamento" data-nav="fechamento">Fechamento</a>
+      <a href="#configuracoes" data-nav="configuracoes">Configurações</a>
+      <a href="#auditoria" data-nav="auditoria">Auditoria</a>
+    </div>
+    <div class="drawer-group" style="border-top:1px solid rgb(var(--c-line));padding-top:12px">
+      <a href="#login" data-nav="login">Sair</a>
+    </div>
+  </nav>
+</aside>
+
+<main id="main">
+
+<!-- =========================== LOGIN =========================== -->
+<section class="screen" data-screen="login" hidden>
+  <div class="login-wrap">
+    <div class="login-card">
+      <p class="smallcaps">Livro-caixa da banca · acesso restrito</p>
+      <h1 style="font-size:34px;line-height:1.1;margin-top:10px">Banca Compartilhada</h1>
+      <p class="serif italic muted" style="margin-top:10px;font-size:16px;line-height:1.55">
+        Entre com a sua conta para acompanhar o caixa, as entradas e o rateio entre os sócios.
+      </p>
+
+      <div class="login-rule"></div>
+
+      <form id="loginForm" novalidate>
+        <label class="field" for="email"><span class="lbl">E-mail</span>
+          <input class="inp" id="email" name="email" type="email" autocomplete="username" placeholder="voce@exemplo.com" required>
+        </label>
+        <label class="field" for="senha" style="margin-top:20px"><span class="lbl">Senha</span>
+          <input class="inp" id="senha" name="senha" type="password" autocomplete="current-password" placeholder="••••••••" required>
+        </label>
+        <p class="field-hint" id="loginErr" hidden></p>
+        <button class="btn primary" type="submit" style="width:100%;margin-top:26px;min-height:46px">Entrar na banca</button>
+      </form>
+
+      <blockquote class="pullquote" style="margin-top:30px">
+        As metas registradas aqui são referências de acompanhamento. Nenhum resultado é garantido.
+        <cite>Regra da casa</cite>
+      </blockquote>
+
+      <p class="faint" style="margin-top:26px;font-size:12px;line-height:1.6">
+        Cada sócio deve usar a sua própria conta. Todo lançamento fica registrado na auditoria com autor, data e hora.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- =========================== DASHBOARD =========================== -->
+<section class="screen" data-screen="dashboard" hidden>
+<div class="sheet">
+
+  <div class="pagehead">
+    <div class="kicker">
+      <span class="smallcaps">Relatório mensal · Operação</span>
+      <span class="faint" aria-hidden="true">—</span>
+      <span class="smallcaps" style="color:rgb(var(--c-accent))">Mês em andamento</span>
+    </div>
+    <h1>Setembro de 2026</h1>
+    <p class="dek measure">
+      Um retrato do caixa da banca até o quarto dia do mês: quanto entrou, quanto saiu,
+      quanto falta para a meta e quanto cabe a cada sócio.
+    </p>
+    <div class="byline">
+      <span>Banca <b>Compartilhada</b></span>
+      <span>Apurado até <b>04/09/2026</b></span>
+      <span>Fuso <b>America/Sao_Paulo</b></span>
+      <span>Responsável <b>Cesar Lima</b> (Administrador)</span>
+      <span class="ch-action" style="margin-left:auto">
+        <label class="smallcaps" for="periodo" style="margin-right:6px">Período</label>
+        <select class="inp" id="periodo" style="width:auto;display:inline-block;min-height:32px;padding:2px 2px;font-size:13px">
+          <option value="2026-09" selected>Setembro de 2026</option>
+          <option value="2026-08">Agosto de 2026</option>
+          <option value="2026-07">Julho de 2026</option>
+        </select>
+      </span>
+    </div>
+  </div>
+
+  <!-- Sumário executivo -->
+  <div style="margin-top:34px">
+    <p class="lede dropcap">
+      Em setembro a banca cresceu <b>R$ 1.842,50</b>, saindo de R$ 5.000,00 para
+      <b>R$ 6.842,50</b> em quatro dias de operação. Isso representa <b>61,4%</b> da meta
+      de R$ 3.000,00 do mês e um ROI de <b>+7,8%</b> sobre R$ 23.640,00 apostados em 48 entradas.
+      A taxa de acerto está em 62,8% — 27 greens contra 16 reds — com stake média de R$ 492,50.
+    </p>
+    <p class="lede">
+      Nenhum limite de perda foi atingido. O stop mais pressionado é o semanal, em
+      <b>36,0%</b> do teto de R$ 410,55.<sup class="fn">2</sup> Há <b>R$ 1.480,00</b> ainda
+      expostos em quatro entradas em aberto, que não entram no lucro nem na banca até serem
+      resolvidas.<sup class="fn">6</sup> A meta é uma referência de gestão, não uma promessa
+      de resultado.<sup class="fn">3</sup>
+    </p>
+  </div>
+
+  <!-- Quatro números-âncora -->
+  <div class="figures">
+    <div class="figure">
+      <p class="smallcaps">Banca atual</p>
+      <p class="num">R$ 6.842,50</p>
+      <p class="sub"><span class="pos" style="font-weight:600">+R$ 1.842,50</span> desde a banca inicial de R$ 5.000,00</p>
+    </div>
+    <div class="figure">
+      <p class="smallcaps">Lucro do mês</p>
+      <p class="num pos">+R$ 1.842,50</p>
+      <p class="sub">44 entradas resolvidas · média de +R$ 41,88 por entrada</p>
+    </div>
+    <div class="figure">
+      <p class="smallcaps">ROI do mês</p>
+      <p class="num pos">+7,8%</p>
+      <p class="sub">Sobre R$ 23.640,00 apostados no período</p>
+    </div>
+    <div class="figure">
+      <p class="smallcaps">Meta do mês</p>
+      <p class="num">61,4%</p>
+      <p class="sub">Faltam R$ 1.157,50 para R$ 3.000,00</p>
+    </div>
+  </div>
+
+  <!-- I. Meta -->
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ I</span>
+        <h2>Progresso da meta mensal</h2>
+        <span class="ch-action"><a class="btn sm" href="#metas" data-go="metas">Ver dia a dia</a></span>
+      </div>
+      <p class="note">A meta mensal de R$ 3.000,00 é dividida em R$ 100,00 por dia ao longo de 30 dias ativos.<sup class="fn">3</sup></p>
+    </header>
+
+    <div class="grid g-23" style="align-items:start;gap:34px">
+      <div>
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:12px">
+          <p class="serif" style="font-size:30px;font-weight:600;line-height:1">
+            <span class="pos">R$ 1.842,50</span>
+            <span class="faint" style="font-size:17px;font-style:italic">&nbsp;de R$ 3.000,00</span>
+          </p>
+          <p class="serif" style="font-size:30px;font-weight:600;line-height:1">61,4%</p>
+        </div>
+        <div class="rule-bar" role="img" aria-label="Progresso da meta mensal: 61,4 por cento">
+          <i style="width:61.4%"></i>
+          <span class="ticks" aria-hidden="true">
+            <span style="left:25%"></span><span style="left:50%"></span><span style="left:75%"></span>
+          </span>
+        </div>
+        <div class="rule-scale"><span>R$ 0</span><span>R$ 1.500,00</span><span>R$ 3.000,00</span></div>
+        <p class="note" style="margin-top:14px">
+          Faltam <b>R$ 1.157,50</b> para a meta do mês e <b>R$ 1.157,50</b> para a banca-alvo de R$ 8.000,00 —
+          as duas distâncias coincidem porque a meta do mês e o alvo da banca foram calibrados juntos.
+        </p>
+      </div>
+
+      <dl class="leaders">
+        <div class="leader"><dt>Banca inicial</dt><span class="dots"></span><dd>R$ 5.000,00</dd></div>
+        <div class="leader"><dt>Banca-alvo</dt><span class="dots"></span><dd>R$ 8.000,00</dd></div>
+        <div class="leader"><dt>Falta para a banca-alvo</dt><span class="dots"></span><dd>R$ 1.157,50</dd></div>
+        <div class="leader"><dt>Meta diária</dt><span class="dots"></span><dd>R$ 100,00</dd></div>
+        <div class="leader" style="border-bottom:0"><dt>Dias ativos no mês</dt><span class="dots"></span><dd>30</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <!-- II. Gráficos -->
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ II</span>
+        <h2>Evolução do mês</h2>
+      </div>
+      <p class="note">Meta acumulada × realizado acumulado, dia a dia. Do dia 05/09 em diante o realizado é projeção, não histórico.<sup class="fn">4</sup></p>
+    </header>
+
+    <figure style="margin:0">
+      <div class="chart-shell" id="chartLine"></div>
+      <figcaption>
+        <b>Figura 1</b>
+        Nos quatro primeiros dias o acumulado chegou a <b>R$ 573,50</b>, R$ 173,50 acima da meta
+        acumulada de R$ 400,00. O dia 3 foi o único negativo do período apurado (−R$ 227,50) e ainda
+        assim o mês manteve-se adiante da linha de meta. A linha pontilhada é uma projeção até
+        R$ 1.842,50; a meta cheia termina em R$ 3.000,00 no dia 30.
+      </figcaption>
+    </figure>
+
+    <figure style="margin:38px 0 0">
+      <div class="chart-shell" id="chartBars"></div>
+      <figcaption>
+        <b>Figura 2</b>
+        Resultado líquido de cada dia. Os quatro primeiros dias são apurados:
+        +R$ 305,00 · +R$ 112,00 · −R$ 227,50 · +R$ 384,00. As barras vazadas a partir do dia 5
+        são projeção e servem apenas para dimensionar o ritmo necessário até o fim do mês.
+      </figcaption>
+    </figure>
+  </section>
+
+  <!-- III. Números do mês + risco -->
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ III</span>
+        <h2>Números do mês</h2>
+      </div>
+      <p class="note">Somente entradas de setembro de 2026. Valores em reais, com sinal explícito quando são resultado.</p>
+    </header>
+
+    <div class="grid g-32" style="gap:40px;align-items:start">
+      <div class="grid g-2" style="gap:0 40px">
+        <dl class="leaders">
+          <div class="leader"><dt>Entradas registradas</dt><span class="dots"></span><dd>48</dd></div>
+          <div class="leader"><dt>Greens</dt><span class="dots"></span><dd class="pos">27</dd></div>
+          <div class="leader"><dt>Reds</dt><span class="dots"></span><dd class="neg">16</dd></div>
+          <div class="leader"><dt>Voids</dt><span class="dots"></span><dd>3</dd></div>
+          <div class="leader"><dt>Cashouts</dt><span class="dots"></span><dd>2</dd></div>
+          <div class="leader"><dt>Em aberto</dt><span class="dots"></span><dd>4</dd></div>
+          <div class="leader"><dt>Taxa de acerto</dt><span class="dots"></span><dd>62,8%</dd></div>
+          <div class="leader"><dt>Stake total</dt><span class="dots"></span><dd>R$ 23.640,00</dd></div>
+        </dl>
+        <dl class="leaders">
+          <div class="leader"><dt>Stake média</dt><span class="dots"></span><dd>R$ 492,50</dd></div>
+          <div class="leader"><dt>Maior stake</dt><span class="dots"></span><dd>R$ 680,00</dd></div>
+          <div class="leader"><dt>Lucro bruto</dt><span class="dots"></span><dd class="pos">R$ 4.910,00</dd></div>
+          <div class="leader"><dt>Prejuízo bruto</dt><span class="dots"></span><dd class="neg">R$ 3.067,50</dd></div>
+          <div class="leader"><dt>Lucro médio por entrada</dt><span class="dots"></span><dd class="pos">+R$ 41,88</dd></div>
+          <div class="leader"><dt>Aportes do mês</dt><span class="dots"></span><dd>R$ 500,00</dd></div>
+          <div class="leader"><dt>Retiradas do mês</dt><span class="dots"></span><dd>R$ 300,00</dd></div>
+          <div class="leader"><dt>Exposição em aberto</dt><span class="dots"></span><dd>R$ 1.480,00</dd></div>
+        </dl>
+      </div>
+
+      <!-- Controle de risco -->
+      <div class="panel">
+        <p class="smallcaps">§ III.a — Controle de risco</p>
+        <h3 style="font-size:20px;margin-top:6px">Stake máxima por entrada</h3>
+        <p class="serif num" style="font-size:38px;font-weight:600;line-height:1.1;margin-top:8px">R$ 68,42</p>
+        <p class="note" style="margin-top:4px">1,0% sobre a banca atual de R$ 6.842,50, recalculada a cada registro.<sup class="fn">1</sup></p>
+
+        <hr style="border:0;border-top:1px solid rgb(var(--c-line));margin:20px 0">
+
+        <p class="smallcaps" style="margin-bottom:12px">Limites de perda</p>
+        <div style="display:grid;gap:16px">
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px">
+              <span class="muted">Stop diário</span>
+              <span class="num faint">R$ 12,50 de R$ 205,28 · 6,1%</span>
+            </div>
+            <div class="rule-bar thin" role="img" aria-label="Stop diário em 6,1 por cento do limite"><i style="width:6.1%"></i></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px">
+              <span class="muted">Stop semanal</span>
+              <span class="num faint">R$ 148,00 de R$ 410,55 · 36,0%</span>
+            </div>
+            <div class="rule-bar thin" role="img" aria-label="Stop semanal em 36,0 por cento do limite"><i style="width:36%"></i></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:5px">
+              <span class="muted">Stop mensal</span>
+              <span class="num faint">R$ 320,00 de R$ 684,25 · 46,8%</span>
+            </div>
+            <div class="rule-bar thin warn" role="img" aria-label="Stop mensal em 46,8 por cento do limite"><i style="width:46.8%"></i></div>
+          </div>
+        </div>
+
+        <div class="callout ok" style="margin-top:20px">
+          <b>Nenhum limite atingido</b>
+          Os três stops seguem dentro da faixa configurada.<sup class="fn">2</sup> Se algum for atingido,
+          o registro de novas entradas é bloqueado até revisão manual de um administrador.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- IV. Últimas entradas -->
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ IV</span>
+        <h2>Últimas entradas</h2>
+        <span class="ch-action"><a class="btn sm" href="#entradas" data-go="entradas">Ver todas as 48</a></span>
+      </div>
+      <p class="note">Registros mais recentes de setembro de 2026. O resultado é calculado pelo servidor a cada gravação.</p>
+    </header>
+
+    <div class="wrap-x">
+      <table class="report" style="min-width:720px">
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Evento e mercado</th>
+            <th scope="col">Responsável</th>
+            <th scope="col" class="r">Stake</th>
+            <th scope="col" class="c">Status</th>
+            <th scope="col" class="r">Resultado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="num muted">04/09/2026</td><td><div class="cell-main">Palmeiras × Grêmio</div><div class="cell-sub">Over 2.5 gols</div></td><td class="muted">Cesar Lima</td><td class="r num">R$ 600,00</td><td class="c"><span class="tag open">Aberta</span></td><td class="r faint">—</td></tr>
+          <tr><td class="num muted">04/09/2026</td><td><div class="cell-main">Real Madrid × Girona</div><div class="cell-sub">Casa −1.5 AH</div></td><td class="muted">Marina Alves</td><td class="r num">R$ 480,00</td><td class="c"><span class="tag green">Green</span></td><td class="r num pos" style="font-weight:600">+R$ 384,00</td></tr>
+          <tr><td class="num muted">03/09/2026</td><td><div class="cell-main">Flamengo × Bahia</div><div class="cell-sub">Ambas marcam</div></td><td class="muted">Rafael Duarte</td><td class="r num">R$ 520,00</td><td class="c"><span class="tag red">Red</span></td><td class="r num neg" style="font-weight:600">−R$ 520,00</td></tr>
+          <tr><td class="num muted">03/09/2026</td><td><div class="cell-main">Inter × Bragantino</div><div class="cell-sub">Under 3.5 gols</div></td><td class="muted">Cesar Lima</td><td class="r num">R$ 450,00</td><td class="c"><span class="tag green">Green</span></td><td class="r num pos" style="font-weight:600">+R$ 292,50</td></tr>
+          <tr><td class="num muted">02/09/2026</td><td><div class="cell-main">Arsenal × Chelsea</div><div class="cell-sub">Empate anula</div></td><td class="muted">Marina Alves</td><td class="r num">R$ 380,00</td><td class="c"><span class="tag void">Void</span></td><td class="r num faint">R$ 0,00</td></tr>
+          <tr><td class="num muted">02/09/2026</td><td><div class="cell-main">Botafogo × Cruzeiro</div><div class="cell-sub">Handicap asiático 0.0</div></td><td class="muted">Bruno Teixeira</td><td class="r num">R$ 500,00</td><td class="c"><span class="tag cash">Cashout</span></td><td class="r num pos" style="font-weight:600">+R$ 112,00</td></tr>
+          <tr><td class="num muted">01/09/2026</td><td><div class="cell-main">São Paulo × Fortaleza</div><div class="cell-sub">Over 1.5 gols HT</div></td><td class="muted">Cesar Lima</td><td class="r num">R$ 610,00</td><td class="c"><span class="tag green">Green</span></td><td class="r num pos" style="font-weight:600">+R$ 305,00</td></tr>
+          <tr><td class="num muted">01/09/2026</td><td><div class="cell-main">Bayern × Leipzig</div><div class="cell-sub">Casa vence</div></td><td class="muted">Rafael Duarte</td><td class="r num">R$ 540,00</td><td class="c"><span class="tag red">Red</span></td><td class="r num neg" style="font-weight:600">−R$ 540,00</td></tr>
+          <tr class="total"><td colspan="3">Soma dos oito registros exibidos</td><td class="r num">R$ 4.080,00</td><td></td><td class="r num pos">+R$ 33,50</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- V. Sócios + em aberto -->
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ V</span>
+        <h2>Sócios no mês</h2>
+        <span class="ch-action"><a class="btn sm" href="#socios" data-go="socios">Rateio completo</a></span>
+      </div>
+      <p class="note">Divisão do lucro de setembro conforme a participação vigente. Aporte nunca é contabilizado como lucro.</p>
+    </header>
+
+    <div class="grid g-32" style="gap:40px;align-items:start">
+      <div class="wrap-x">
+        <table class="report" style="min-width:470px">
+          <thead>
+            <tr>
+              <th scope="col">Sócio</th>
+              <th scope="col" class="r">Participação</th>
+              <th scope="col">Fatia</th>
+              <th scope="col" class="r">Lucro do mês</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="cell-main">Cesar Lima</td><td class="r num">45,0%</td><td style="width:30%"><div class="rule-bar thin"><i style="width:100%"></i></div></td><td class="r num pos" style="font-weight:600">+R$ 829,13</td></tr>
+            <tr><td class="cell-main">Marina Alves</td><td class="r num">30,0%</td><td><div class="rule-bar thin"><i style="width:66.7%"></i></div></td><td class="r num pos" style="font-weight:600">+R$ 552,75</td></tr>
+            <tr><td class="cell-main">Rafael Duarte</td><td class="r num">15,0%</td><td><div class="rule-bar thin"><i style="width:33.3%"></i></div></td><td class="r num pos" style="font-weight:600">+R$ 276,38</td></tr>
+            <tr><td class="cell-main">Bruno Teixeira</td><td class="r num">10,0%</td><td><div class="rule-bar thin"><i style="width:22.2%"></i></div></td><td class="r num pos" style="font-weight:600">+R$ 184,25</td></tr>
+            <tr class="total"><td>Total</td><td class="r num">100,0%</td><td></td><td class="r num pos">+R$ 1.842,50<sup class="fn">5</sup></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <p class="smallcaps">§ V.a — Entradas em aberto</p>
+        <h3 style="font-size:20px;margin-top:6px">R$ 1.480,00 expostos</h3>
+        <p class="note" style="margin-top:4px">Quatro entradas ainda não resolvidas. Não entram no lucro nem na banca.<sup class="fn">6</sup></p>
+        <dl class="leaders" style="margin-top:14px">
+          <div class="leader"><dt>Palmeiras × Grêmio</dt><span class="dots"></span><dd>R$ 600,00</dd></div>
+          <div class="leader"><dt>Milan × Napoli</dt><span class="dots"></span><dd>R$ 340,00</dd></div>
+          <div class="leader"><dt>Corinthians × Vasco</dt><span class="dots"></span><dd>R$ 290,00</dd></div>
+          <div class="leader" style="border-bottom:0"><dt>PSG × Lyon</dt><span class="dots"></span><dd>R$ 250,00</dd></div>
+        </dl>
+        <p class="faint" style="margin-top:12px;font-size:12px">A exposição em aberto equivale a 21,6% da banca atual.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- VI. Acumulado -->
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ VI</span>
+        <h2>Resultado acumulado</h2>
+      </div>
+      <p class="note">Todo o histórico da banca, somando os meses já registrados.</p>
+    </header>
+
+    <div class="wrap-x">
+      <table class="report" style="min-width:660px">
+        <thead>
+          <tr>
+            <th scope="col">Entradas</th>
+            <th scope="col" class="r">Lucro total</th>
+            <th scope="col" class="r">ROI total</th>
+            <th scope="col" class="r">Taxa de acerto</th>
+            <th scope="col" class="r">Aportes</th>
+            <th scope="col" class="r">Retiradas</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num serif" style="font-size:23px;font-weight:600">213</td>
+            <td class="r num serif pos" style="font-size:23px;font-weight:600">+R$ 3.284,90</td>
+            <td class="r num serif pos" style="font-size:23px;font-weight:600">+5,2%</td>
+            <td class="r num serif" style="font-size:23px;font-weight:600">60,1%</td>
+            <td class="r num serif" style="font-size:23px;font-weight:600">R$ 5.500,00</td>
+            <td class="r num serif" style="font-size:23px;font-weight:600">R$ 1.200,00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note" style="margin-top:14px">
+      Setembro responde por 56,1% de todo o lucro já acumulado pela banca — um mês acima da média,
+      não um novo patamar. O ROI histórico de +5,2% continua sendo a referência de planejamento.
+    </p>
+  </section>
+
+  <blockquote class="pullquote">
+    O sistema nunca trata lucro como garantido, nunca aumenta limites sozinho e nunca sugere
+    elevar a stake para recuperar prejuízo.
+    <cite>Política de risco da banca</cite>
+  </blockquote>
+
+  <section class="footnotes">
+    <p class="smallcaps">Notas</p>
+    <ol>
+      <li>Stake máxima = 1,0% da banca atual (R$ 6.842,50), arredondada para R$ 68,42. Nenhum teto absoluto foi aplicado. A base de cálculo pode ser trocada para banca inicial ou banca no início do mês em Configurações.</li>
+      <li>Os stops comparam o prejuízo líquido do período com o limite configurado. Em setembro nenhum foi atingido: diário 6,1%, semanal 36,0% e mensal 46,8% do respectivo teto.</li>
+      <li>A meta mensal e a meta diária são referências de acompanhamento. Não há obrigação de lucro em nenhum dia e nenhum resultado é garantido.</li>
+      <li>Os quatro primeiros dias são apuração real. Do dia 05/09 ao dia 30/09 a linha de realizado é projeção, desenhada pontilhada, e não deve ser lida como histórico.</li>
+      <li>A soma das fatias dos sócios resulta em R$ 1.842,51 por arredondamento de centavos; o lucro do mês registrado no caixa é R$ 1.842,50. A diferença de um centavo permanece no caixa da banca.</li>
+      <li>Entradas em aberto (R$ 1.480,00) permanecem fora do lucro, do ROI e da banca até serem resolvidas como green, red, void ou cashout.</li>
+    </ol>
+  </section>
+
+  <div class="colophon">
+    <span>Banca Compartilhada · livro-caixa entre sócios</span>
+    <span>Relatório gerado em 04/09/2026</span>
+    <span>Valores em reais (R$) · fuso America/Sao_Paulo</span>
+  </div>
+</div>
+</section>
+
+<!-- =========================== ENTRADAS =========================== -->
+<section class="screen" data-screen="entradas" hidden>
+<div class="sheet">
+  <div class="pagehead">
+    <div class="kicker"><span class="smallcaps">Operação · Livro de registros</span></div>
+    <h1>Entradas</h1>
+    <p class="dek measure">
+      Registro das apostas de setembro de 2026. O resultado de cada linha é calculado pelo
+      servidor no momento da gravação — nada é editado à mão depois do fechamento do mês.
+    </p>
+    <div class="byline">
+      <span>48 entradas no período</span>
+      <span>Stake total <b>R$ 23.640,00</b></span>
+      <span>Resultado <b class="pos">+R$ 1.842,50</b></span>
+      <span>Stake máxima por entrada <b>R$ 68,42</b></span>
+    </div>
+  </div>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ I</span>
+        <h2>Resumo do mês</h2>
+        <span class="ch-action"><button class="btn primary" id="btnNovaEntrada">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Nova entrada
+        </button></span>
+      </div>
+    </header>
+    <div class="grid g-3" style="gap:0 40px">
+      <dl class="leaders">
+        <div class="leader"><dt>Entradas</dt><span class="dots"></span><dd>48</dd></div>
+        <div class="leader" style="border-bottom:0"><dt>Resolvidas</dt><span class="dots"></span><dd>44</dd></div>
+      </dl>
+      <dl class="leaders">
+        <div class="leader"><dt>Em aberto</dt><span class="dots"></span><dd>4</dd></div>
+        <div class="leader" style="border-bottom:0"><dt>Stake total</dt><span class="dots"></span><dd>R$ 23.640,00</dd></div>
+      </dl>
+      <dl class="leaders">
+        <div class="leader"><dt>Resultado</dt><span class="dots"></span><dd class="pos">+R$ 1.842,50</dd></div>
+        <div class="leader" style="border-bottom:0"><dt>Taxa de acerto</dt><span class="dots"></span><dd>62,8%</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line">
+        <span class="ch-num">§ II</span>
+        <h2>Entradas de setembro de 2026</h2>
+      </div>
+      <p class="note">Mais recentes primeiro. Use os filtros para recortar o livro por status, responsável ou evento.</p>
+    </header>
+
+    <div class="panel plain" style="border:1px solid rgb(var(--c-line));padding:18px 20px;margin-bottom:26px">
+      <div id="filtros">
+        <label class="field" for="fBusca"><span class="lbl">Buscar evento ou mercado</span>
+          <input class="inp" id="fBusca" type="search" placeholder="Ex.: Palmeiras, Over 2.5…">
+        </label>
+        <label class="field" for="fStatus"><span class="lbl">Status</span>
+          <span class="sel-wrap">
+            <select class="inp" id="fStatus">
+              <option value="">Todos os status</option>
+              <option value="OPEN">Aberta</option>
+              <option value="GREEN">Green</option>
+              <option value="RED">Red</option>
+              <option value="VOID">Void</option>
+              <option value="CASHOUT">Cashout</option>
+            </select>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </label>
+        <label class="field" for="fSocio"><span class="lbl">Responsável</span>
+          <span class="sel-wrap">
+            <select class="inp" id="fSocio">
+              <option value="">Todos os sócios</option>
+              <option>Cesar Lima</option>
+              <option>Marina Alves</option>
+              <option>Rafael Duarte</option>
+              <option>Bruno Teixeira</option>
+            </select>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </label>
+        <button class="btn" id="btnLimpar" type="button">Limpar filtros</button>
+      </div>
+      <p class="faint" style="margin-top:14px;font-size:12.5px" id="filtroInfo">Exibindo 8 de 8 registros carregados.</p>
+    </div>
+
+    <div class="wrap-x">
+      <table class="report" style="min-width:780px" id="tabEntradas">
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Evento e mercado</th>
+            <th scope="col">Responsável</th>
+            <th scope="col" class="r">Stake</th>
+            <th scope="col" class="c">Status</th>
+            <th scope="col" class="r">Resultado</th>
+            <th scope="col" class="r">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="corpoEntradas"></tbody>
+      </table>
+    </div>
+
+    <div id="vazioEntradas" class="empty" hidden>
+      <h3>Nenhuma entrada corresponde ao filtro</h3>
+      <p class="muted measure" style="margin:0 auto">
+        Ajuste a busca, o status ou o responsável. Se a entrada ainda não existe, registre-a —
+        o livro só mostra o que foi efetivamente lançado.
+      </p>
+      <button class="btn" type="button" id="btnLimpar2" style="margin-top:18px">Limpar filtros</button>
+    </div>
+
+    <div class="callout" style="margin-top:28px">
+      <b>Limite de stake vigente: R$ 68,42</b>
+      Equivale a 1,0% da banca atual.<sup class="fn">1</sup> Lançamentos acima do limite exigem
+      justificativa registrada e ficam marcados na auditoria. O limite não sobe sozinho.
+    </div>
+
+    <section class="footnotes">
+      <p class="smallcaps">Notas</p>
+      <ol>
+        <li>Stake máxima = 1,0% da banca atual (R$ 6.842,50). Política configurada como aviso: o registro é permitido, mas exige motivo da exceção.</li>
+        <li>Entradas com status Aberta não entram no lucro, no ROI nem na banca até serem resolvidas.</li>
+      </ol>
+    </section>
+  </section>
+</div>
+</section>
+
+<!-- =========================== MODAL NOVA ENTRADA =========================== -->
+<div class="modal-scrim" id="modalScrim" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <p class="smallcaps">Livro de registros · setembro de 2026</p>
+        <h2 id="modalTitulo" style="font-size:24px;margin-top:4px">Nova entrada</h2>
+      </div>
+      <button class="iconbtn" id="btnFecharModal" aria-label="Fechar formulário" style="margin-left:auto">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <form id="formEntrada">
+      <div class="modal-body">
+        <div class="grid g-2" style="gap:20px">
+          <label class="field" for="nData"><span class="lbl">Data</span>
+            <input class="inp" id="nData" type="date" value="2026-09-04" required>
+          </label>
+          <label class="field" for="nSocio"><span class="lbl">Sócio responsável</span>
+            <span class="sel-wrap">
+              <select class="inp" id="nSocio" required>
+                <option>Cesar Lima</option>
+                <option>Marina Alves</option>
+                <option>Rafael Duarte</option>
+                <option>Bruno Teixeira</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </label>
+        </div>
+
+        <label class="field" for="nEvento" style="margin-top:20px"><span class="lbl">Evento</span>
+          <input class="inp" id="nEvento" placeholder="Ex.: Palmeiras × Grêmio" required>
+        </label>
+
+        <label class="field" for="nMercado" style="margin-top:20px"><span class="lbl">Mercado</span>
+          <input class="inp" id="nMercado" placeholder="Ex.: Over 2.5 gols" required list="mercados">
+          <datalist id="mercados">
+            <option value="Over 2.5 gols"></option>
+            <option value="Under 3.5 gols"></option>
+            <option value="Ambas marcam"></option>
+            <option value="Casa −1.5 AH"></option>
+            <option value="Handicap asiático 0.0"></option>
+            <option value="Empate anula"></option>
+            <option value="Over 1.5 gols HT"></option>
+            <option value="Casa vence"></option>
+          </datalist>
+        </label>
+
+        <div class="grid g-3" style="gap:20px;margin-top:20px">
+          <label class="field" for="nOdd"><span class="lbl">Odd</span>
+            <input class="inp num" id="nOdd" inputmode="decimal" placeholder="1,80" required>
+          </label>
+          <label class="field" for="nStake"><span class="lbl">Stake (R$)</span>
+            <input class="inp num" id="nStake" inputmode="decimal" placeholder="68,42" required aria-describedby="stakeHint">
+            <span class="field-hint" id="stakeHint">Limite por entrada: R$ 68,42</span>
+          </label>
+          <label class="field" for="nStatus"><span class="lbl">Status</span>
+            <span class="sel-wrap">
+              <select class="inp" id="nStatus">
+                <option value="OPEN">Aberta</option>
+                <option value="GREEN">Green</option>
+                <option value="RED">Red</option>
+                <option value="VOID">Void</option>
+                <option value="CASHOUT">Cashout</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </label>
+        </div>
+
+        <label class="field" for="nMotivo" id="motivoWrap" style="margin-top:20px" hidden>
+          <span class="lbl">Motivo da exceção de risco</span>
+          <input class="inp" id="nMotivo" placeholder="Por que esta entrada passa do limite?">
+        </label>
+
+        <div class="callout" id="avisoRisco" style="margin-top:22px">
+          <b>Aviso de limite</b>
+          A stake máxima é <b style="display:inline;font-family:inherit;font-size:inherit">R$ 68,42</b> —
+          1,0% da banca atual de R$ 6.842,50. O sistema não sugere aumentar stake para recuperar
+          prejuízo e não eleva o limite automaticamente.
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn" type="button" id="btnCancelar">Cancelar</button>
+        <button class="btn primary" type="submit">Registrar entrada</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- =========================== METAS DIÁRIAS =========================== -->
+<section class="screen" data-screen="metas" hidden>
+<div class="sheet">
+  <div class="pagehead">
+    <div class="kicker"><span class="smallcaps">Operação · Calendário do mês</span></div>
+    <h1>Metas diárias</h1>
+    <p class="dek measure">
+      A meta diária de R$ 100,00 é apenas uma referência para acompanhar a meta mensal.
+      Não há obrigação de lucro em nenhum dia, e um dia negativo não pede compensação no dia seguinte.
+    </p>
+    <div class="byline">
+      <span>Setembro de 2026</span>
+      <span>30 dias ativos</span>
+      <span>Meta do mês <b>R$ 3.000,00</b></span>
+      <span>Realizado <b class="pos">+R$ 1.842,50</b></span>
+    </div>
+  </div>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line"><span class="ch-num">§ I</span><h2>Onde o mês está</h2></div>
+    </header>
+    <div class="grid g-4" style="gap:0 34px">
+      <dl class="leaders">
+        <div class="leader" style="border-bottom:0"><dt>Meta do mês</dt><span class="dots"></span><dd>R$ 3.000,00</dd></div>
+      </dl>
+      <dl class="leaders">
+        <div class="leader" style="border-bottom:0"><dt>Meta diária</dt><span class="dots"></span><dd>R$ 100,00</dd></div>
+      </dl>
+      <dl class="leaders">
+        <div class="leader" style="border-bottom:0"><dt>Realizado</dt><span class="dots"></span><dd class="pos">+R$ 1.842,50</dd></div>
+      </dl>
+      <dl class="leaders">
+        <div class="leader" style="border-bottom:0"><dt>Progresso</dt><span class="dots"></span><dd>61,4%</dd></div>
+      </dl>
+    </div>
+    <div class="rule-bar" style="margin-top:20px"><i style="width:61.4%"></i></div>
+    <div class="rule-scale"><span>R$ 0</span><span>R$ 3.000,00</span></div>
+  </section>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line"><span class="ch-num">§ II</span><h2>Setembro dia a dia</h2></div>
+      <p class="note">
+        Meta × realizado de cada dia. Os quatro primeiros dias são apuração real; do dia 05/09 em
+        diante ainda não há registro.<sup class="fn">2</sup>
+      </p>
+    </header>
+
+    <div class="wrap-x">
+      <div style="min-width:640px">
+        <div class="cal" id="calendario"></div>
+      </div>
+    </div>
+
+    <div class="grid g-4" style="margin-top:22px;gap:0 34px">
+      <dl class="leaders"><div class="leader" style="border-bottom:0"><dt>Dias com entradas</dt><span class="dots"></span><dd>4</dd></div></dl>
+      <dl class="leaders"><div class="leader" style="border-bottom:0"><dt>Dias com meta batida</dt><span class="dots"></span><dd class="pos">3</dd></div></dl>
+      <dl class="leaders"><div class="leader" style="border-bottom:0"><dt>Dias negativos</dt><span class="dots"></span><dd class="neg">1</dd></div></dl>
+      <dl class="leaders"><div class="leader" style="border-bottom:0"><dt>Dias com stop atingido</dt><span class="dots"></span><dd>0</dd></div></dl>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line"><span class="ch-num">§ III</span><h2>Apuração dos dias já fechados</h2></div>
+      <p class="note">Comparação entre a meta acumulada e o que a banca de fato acumulou.</p>
+    </header>
+    <div class="wrap-x">
+      <table class="report" style="min-width:700px">
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col" class="r">Meta do dia</th>
+            <th scope="col" class="r">Resultado do dia</th>
+            <th scope="col" class="r">Meta acumulada</th>
+            <th scope="col" class="r">Acumulado</th>
+            <th scope="col" class="r">Diferença</th>
+            <th scope="col" class="c">Situação</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="num muted">01/09/2026 <span class="faint">ter</span></td><td class="r num">R$ 100,00</td><td class="r num pos" style="font-weight:600">+R$ 305,00</td><td class="r num">R$ 100,00</td><td class="r num">R$ 305,00</td><td class="r num pos">+R$ 205,00</td><td class="c"><span class="tag green">Acima</span></td></tr>
+          <tr><td class="num muted">02/09/2026 <span class="faint">qua</span></td><td class="r num">R$ 100,00</td><td class="r num pos" style="font-weight:600">+R$ 112,00</td><td class="r num">R$ 200,00</td><td class="r num">R$ 417,00</td><td class="r num pos">+R$ 217,00</td><td class="c"><span class="tag green">Acima</span></td></tr>
+          <tr><td class="num muted">03/09/2026 <span class="faint">qui</span></td><td class="r num">R$ 100,00</td><td class="r num neg" style="font-weight:600">−R$ 227,50</td><td class="r num">R$ 300,00</td><td class="r num">R$ 189,50</td><td class="r num neg">−R$ 110,50</td><td class="c"><span class="tag red">Abaixo</span></td></tr>
+          <tr><td class="num muted">04/09/2026 <span class="faint">sex</span></td><td class="r num">R$ 100,00</td><td class="r num pos" style="font-weight:600">+R$ 384,00</td><td class="r num">R$ 400,00</td><td class="r num">R$ 573,50</td><td class="r num pos">+R$ 173,50</td><td class="c"><span class="tag green">Acima</span></td></tr>
+          <tr class="total"><td>Acumulado até 04/09</td><td class="r num">R$ 400,00</td><td class="r num pos">+R$ 573,50</td><td class="r num">R$ 400,00</td><td class="r num">R$ 573,50</td><td class="r num pos">+R$ 173,50</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <blockquote class="pullquote">
+      Um dia abaixo da meta é apenas um dia abaixo da meta. O sistema não sugere recuperar
+      prejuízo no dia seguinte, nem aumenta a meta diária para compensar.
+      <cite>Regra da casa</cite>
+    </blockquote>
+
+    <section class="footnotes">
+      <p class="smallcaps">Notas</p>
+      <ol>
+        <li>Meta diária = meta do mês (R$ 3.000,00) dividida por 30 dias ativos, no modo automático. Pode ser fixada manualmente em Configurações.</li>
+        <li>Dias sem registro aparecem como "sem lançamento" e não contam como prejuízo — apenas não somam ao acumulado.</li>
+      </ol>
+    </section>
+  </section>
+</div>
+</section>
+
+<!-- =========================== SÓCIOS =========================== -->
+<section class="screen" data-screen="socios" hidden>
+<div class="sheet">
+  <div class="pagehead">
+    <div class="kicker"><span class="smallcaps">Acompanhamento · Rateio</span></div>
+    <h1>Sócios</h1>
+    <p class="dek measure">
+      Participação, fatia do lucro e valor teórico de cada integrante na banca.
+      Aporte nunca é contabilizado como lucro, e retirada nunca reduz a participação.
+    </p>
+    <div class="byline">
+      <span>4 sócios ativos</span>
+      <span>Participações somam <b>100,0%</b></span>
+      <span>Lucro de setembro <b class="pos">+R$ 1.842,50</b></span>
+      <span>Banca atual <b>R$ 6.842,50</b></span>
+    </div>
+  </div>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line"><span class="ch-num">§ I</span><h2>Como a banca está dividida</h2></div>
+      <p class="note">Cada faixa representa a participação vigente do sócio sobre o total da banca.</p>
+    </header>
+    <figure style="margin:0">
+      <div class="chart-shell" id="chartShare"></div>
+      <figcaption>
+        <b>Figura 3</b>
+        As quatro participações somam exatamente 100,0%, condição obrigatória para que o rateio do
+        lucro feche. Se a soma sair de 100%, o sistema bloqueia o fechamento do mês e avisa aqui.
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line"><span class="ch-num">§ II</span><h2>Participação e resultado</h2></div>
+      <p class="note">Valor teórico = participação × banca atual (R$ 6.842,50). É uma referência de rateio, não um saldo sacável.</p>
+    </header>
+    <div class="wrap-x">
+      <table class="report" style="min-width:700px">
+        <thead>
+          <tr>
+            <th scope="col">Sócio</th>
+            <th scope="col">Perfil</th>
+            <th scope="col" class="r">Participação</th>
+            <th scope="col" class="r">Lucro de setembro</th>
+            <th scope="col" class="r">Valor teórico na banca</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="cell-main">Cesar Lima<div class="cell-sub">cesar@banca.exemplo</div></td><td class="muted">Administrador</td><td class="r num">45,0%</td><td class="r num pos" style="font-weight:600">+R$ 829,13</td><td class="r num">R$ 3.079,13</td></tr>
+          <tr><td class="cell-main">Marina Alves<div class="cell-sub">marina@banca.exemplo</div></td><td class="muted">Sócio</td><td class="r num">30,0%</td><td class="r num pos" style="font-weight:600">+R$ 552,75</td><td class="r num">R$ 2.052,75</td></tr>
+          <tr><td class="cell-main">Rafael Duarte<div class="cell-sub">rafael@banca.exemplo</div></td><td class="muted">Sócio</td><td class="r num">15,0%</td><td class="r num pos" style="font-weight:600">+R$ 276,38</td><td class="r num">R$ 1.026,38</td></tr>
+          <tr><td class="cell-main">Bruno Teixeira<div class="cell-sub">bruno@banca.exemplo</div></td><td class="muted">Sócio</td><td class="r num">10,0%</td><td class="r num pos" style="font-weight:600">+R$ 184,25</td><td class="r num">R$ 684,25</td></tr>
+          <tr class="total"><td>Total</td><td></td><td class="r num">100,0%</td><td class="r num pos">+R$ 1.842,50<sup class="fn">1</sup></td><td class="r num">R$ 6.842,50</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="chapter">
+    <header>
+      <div class="ch-line"><span class="ch-num">§ III</span><h2>Movimentações do mês</h2></div>
+      <p class="note">Aportes e retiradas entram na banca, mas não no lucro nem no ROI.</p>
+    </header>
+    <div class="grid g-32" style="gap:40px;align-items:start">
+      <dl class="leaders">
+        <div class="leader"><dt>Aportes de setembro</dt><span class="dots"></span><dd>R$ 500,00</dd></div>
+        <div class="leader"><dt>Retiradas de setembro</dt><span class="dots"></span><dd>R$ 300,00</dd></div>
+        <div class="leader"><dt>Saldo de movimentações</dt><span class="dots"></span><dd>+R$ 200,00</dd></div>
+        <div class="leader"><dt>Aportes de todo o histórico</dt><span class="dots"></span><dd>R$ 5.500,00</dd></div>
+        <div class="leader" style="border-bottom:0"><dt>Retiradas de todo o histórico</dt><span class="dots"></span><dd>R$ 1.200,00</dd></div>
+      </dl>
+      <div class="callout ok">
+        <b>Movimentações sem sócio vinculado</b>
+        As movimentações de setembro (R$ 500,00 em aportes e R$ 300,00 em retiradas) entram na
+        banca, mas ainda não estão atribuídas a nenhum sócio. Enquanto não forem vinculadas,
+        elas não alteram participação nem rateio.
+      </div>
+    </div>
+
+    <section class="footnotes">
+      <p class="smallcaps">Notas</p>
+      <ol>
+        <li>A soma das fatias resulta em R$ 1.842,51 por arredondamento de centavos; o lucro registrado no caixa é R$ 1.842,50.</li>
+        <li>A participação só muda por decisão registrada em Configurações, com data de vigência. Meses já fechados mantêm a participação vigente na época.</li>
+      </ol>
+    </section>
+  </section>
+</div>
+</section>
+
+<!-- =========================== PLACEHOLDER =========================== -->
+<section class="screen" data-screen="placeholder" hidden>
+<div class="sheet">
+  <div class="pagehead">
+    <div class="kicker"><span class="smallcaps" id="phGrupo">Acompanhamento</span></div>
+    <h1 id="phTitulo">Histórico</h1>
+    <p class="dek measure" id="phTexto">Capítulo previsto para esta edição do caderno.</p>
+  </div>
+  <section class="chapter">
+    <header><div class="ch-line"><span class="ch-num">§ —</span><h2>Capítulo em preparação</h2></div></header>
+    <div class="empty">
+      <h3>Ainda não diagramado</h3>
+      <p class="muted measure" style="margin:0 auto">
+        Esta seção existe no menu real do produto e entra no mesmo sistema visual das demais:
+        cabeçalho editorial, capítulos numerados, tabelas de relatório e notas de rodapé.
+        As cinco telas desenhadas nesta proposta já fixam todos os padrões necessários.
+      </p>
+      <a class="btn primary" href="#dashboard" data-go="dashboard" style="margin-top:20px">Voltar ao relatório de setembro</a>
+    </div>
+  </section>
+</div>
+</section>
+
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<style>
+  :root { --seg1:#144A3C; --seg2:#2F6B57; --seg3:#5A9080; --seg4:#98B8AC; }
+  html[data-theme="dark"] { --seg1:#7EBA9E; --seg2:#5E9A80; --seg3:#417766; --seg4:#2C5648; }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------ */
+  /* Formatação brasileira                                               */
+  /* ------------------------------------------------------------------ */
+  var MINUS = '−';
+  function br(v, dec) {
+    dec = dec === undefined ? 2 : dec;
+    var s = Math.abs(v).toFixed(dec);
+    var p = s.split('.');
+    p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return p.join(',');
+  }
+  function money(v) { return (v < 0 ? MINUS : '') + 'R$ ' + br(v); }
+  function signed(v) { return (v < 0 ? MINUS : '+') + 'R$ ' + br(Math.abs(v)); }
+
+  /* ------------------------------------------------------------------ */
+  /* Dados do mês (dataset obrigatório)                                  */
+  /* ------------------------------------------------------------------ */
+  var REAL_DAYS = 4;
+  var acum = [305, 417, 189.5, 573.5,
+              640, 588, 712, 795, 741, 860, 934, 902, 1005, 1078, 1042,
+              1130, 1204, 1165, 1248, 1316, 1282, 1360, 1428, 1395, 1470,
+              1538, 1502, 1595, 1710, 1842.5];
+  var diario = acum.map(function (v, i) { return +(v - (i ? acum[i - 1] : 0)).toFixed(2); });
+  var meta = acum.map(function (_, i) { return (i + 1) * 100; });
+
+  var ENTRADAS = [
+    { d: '04/09/2026', ev: 'Palmeiras × Grêmio', mk: 'Over 2.5 gols', s: 'Cesar Lima', st: 600, sta: 'OPEN', r: null },
+    { d: '04/09/2026', ev: 'Real Madrid × Girona', mk: 'Casa ' + MINUS + '1.5 AH', s: 'Marina Alves', st: 480, sta: 'GREEN', r: 384 },
+    { d: '03/09/2026', ev: 'Flamengo × Bahia', mk: 'Ambas marcam', s: 'Rafael Duarte', st: 520, sta: 'RED', r: -520 },
+    { d: '03/09/2026', ev: 'Inter × Bragantino', mk: 'Under 3.5 gols', s: 'Cesar Lima', st: 450, sta: 'GREEN', r: 292.5 },
+    { d: '02/09/2026', ev: 'Arsenal × Chelsea', mk: 'Empate anula', s: 'Marina Alves', st: 380, sta: 'VOID', r: 0 },
+    { d: '02/09/2026', ev: 'Botafogo × Cruzeiro', mk: 'Handicap asiático 0.0', s: 'Bruno Teixeira', st: 500, sta: 'CASHOUT', r: 112 },
+    { d: '01/09/2026', ev: 'São Paulo × Fortaleza', mk: 'Over 1.5 gols HT', s: 'Cesar Lima', st: 610, sta: 'GREEN', r: 305 },
+    { d: '01/09/2026', ev: 'Bayern × Leipzig', mk: 'Casa vence', s: 'Rafael Duarte', st: 540, sta: 'RED', r: -540 }
+  ];
+  var TAG = {
+    OPEN: ['open', 'Aberta'], GREEN: ['green', 'Green'], RED: ['red', 'Red'],
+    VOID: ['void', 'Void'], CASHOUT: ['cash', 'Cashout']
+  };
+
+  var TELAS = {
+    dashboard: ['Operação', 'Dashboard'],
+    entradas: ['Operação', 'Entradas'],
+    metas: ['Operação', 'Metas diárias'],
+    socios: ['Acompanhamento', 'Sócios'],
+    historico: ['Acompanhamento', 'Histórico'],
+    estatisticas: ['Acompanhamento', 'Estatísticas'],
+    movimentacoes: ['Acompanhamento', 'Movimentações'],
+    fechamento: ['Administração', 'Fechamento'],
+    configuracoes: ['Administração', 'Configurações'],
+    auditoria: ['Administração', 'Auditoria'],
+    login: ['Acesso', 'Entrar']
+  };
+  var PH_TEXTO = {
+    historico: 'Meses anteriores, com o mesmo relatório desta edição aplicado a cada período já fechado.',
+    estatisticas: 'Recortes por mercado, esporte, sócio e faixa de odd, com séries longas e comparação entre meses.',
+    movimentacoes: 'Aportes e retiradas lançados no caixa, com autor, data, valor e vínculo com o sócio.',
+    fechamento: 'Encerramento do mês: trava os lançamentos, congela o rateio e gera o extrato de cada sócio.',
+    configuracoes: 'Meta mensal, banca-alvo, dias ativos, base de risco, stake máxima e limites de perda.',
+    auditoria: 'Trilha de tudo o que foi criado, alterado ou excluído, com autor, data e valores anteriores.'
+  };
+  var PLACEHOLDERS = ['historico', 'estatisticas', 'movimentacoes', 'fechamento', 'configuracoes', 'auditoria'];
+
+  var $ = function (s, c) { return (c || document).querySelector(s); };
+  var $$ = function (s, c) { return Array.prototype.slice.call((c || document).querySelectorAll(s)); };
+
+  /* ------------------------------------------------------------------ */
+  /* Roteador                                                            */
+  /* ------------------------------------------------------------------ */
+  function rota() {
+    var h = (location.hash || '#dashboard').replace('#', '');
+    return TELAS[h] ? h : 'dashboard';
+  }
+  function mostrar(nome) {
+    var alvo = PLACEHOLDERS.indexOf(nome) >= 0 ? 'placeholder' : nome;
+    $$('.screen').forEach(function (s) { s.hidden = s.getAttribute('data-screen') !== alvo; });
+    $('#masthead').style.display = nome === 'login' ? 'none' : '';
+    if (alvo === 'placeholder') {
+      $('#phGrupo').textContent = TELAS[nome][0];
+      $('#phTitulo').textContent = TELAS[nome][1];
+      $('#phTexto').textContent = PH_TEXTO[nome];
+    }
+    $$('[data-nav]').forEach(function (a) {
+      if (a.getAttribute('data-nav') === nome) { a.setAttribute('aria-current', 'page'); }
+      else { a.removeAttribute('aria-current'); }
+    });
+    document.title = 'Banca Compartilhada — ' + TELAS[nome][1];
+    fecharGaveta();
+    fecharDropdowns();
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', function () { mostrar(rota()); });
+  document.addEventListener('click', function (e) {
+    var g = e.target.closest ? e.target.closest('[data-go]') : null;
+    if (g) { e.preventDefault(); location.hash = '#' + g.getAttribute('data-go'); }
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Tema                                                                */
+  /* ------------------------------------------------------------------ */
+  var raiz = document.documentElement;
+  try {
+    var salvo = localStorage.getItem('banca-tema');
+    if (salvo === 'dark' || salvo === 'light') raiz.setAttribute('data-theme', salvo);
+  } catch (err) {}
+  $('#btnTheme').addEventListener('click', function () {
+    var novo = raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    raiz.setAttribute('data-theme', novo);
+    try { localStorage.setItem('banca-tema', novo); } catch (err) {}
+    toast(novo === 'dark' ? 'Modo escuro — o caderno foi pensado para o claro.' : 'Modo claro restaurado.');
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Gaveta e menus                                                      */
+  /* ------------------------------------------------------------------ */
+  function abrirGaveta() {
+    $('#drawer').setAttribute('data-open', 'true');
+    $('#scrim').setAttribute('data-open', 'true');
+    $('#btnDrawer').setAttribute('aria-expanded', 'true');
+    $('#btnDrawerClose').focus();
+  }
+  function fecharGaveta() {
+    $('#drawer').removeAttribute('data-open');
+    $('#scrim').removeAttribute('data-open');
+    $('#btnDrawer').setAttribute('aria-expanded', 'false');
+  }
+  $('#btnDrawer').addEventListener('click', abrirGaveta);
+  $('#btnDrawerClose').addEventListener('click', fecharGaveta);
+  $('#scrim').addEventListener('click', fecharGaveta);
+
+  function fecharDropdowns() {
+    $$('.dd-menu').forEach(function (m) { m.removeAttribute('data-open'); });
+    $$('[data-dd]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+  }
+  $$('[data-dd]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var alvo = $('#' + btn.getAttribute('data-dd'));
+      var aberto = alvo.getAttribute('data-open') === 'true';
+      fecharDropdowns();
+      if (!aberto) { alvo.setAttribute('data-open', 'true'); btn.setAttribute('aria-expanded', 'true'); }
+    });
+  });
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('.dd')) fecharDropdowns();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { fecharDropdowns(); fecharGaveta(); fecharModal(); }
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Toast                                                               */
+  /* ------------------------------------------------------------------ */
+  var tmr;
+  function toast(msg) {
+    var t = $('#toast');
+    t.textContent = msg;
+    t.setAttribute('data-open', 'true');
+    clearTimeout(tmr);
+    tmr = setTimeout(function () { t.removeAttribute('data-open'); }, 3600);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Gráfico 1 — evolução acumulada                                      */
+  /* ------------------------------------------------------------------ */
+  function grafLinha() {
+    var W = 840, H = 340, pL = 60, pR = 108, pT = 26, pB = 44;
+    var iw = W - pL - pR, ih = H - pT - pB, MAX = 3000;
+    var x = function (i) { return pL + (i / 29) * iw; };
+    var y = function (v) { return pT + (1 - v / MAX) * ih; };
+    var o = [];
+    o.push('<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Meta acumulada contra realizado acumulado de setembro de 2026">');
+    o.push('<title>Evolução do mês: meta acumulada × realizado acumulado</title>');
+
+    [0, 750, 1500, 2250, 3000].forEach(function (v) {
+      o.push('<line x1="' + pL + '" y1="' + y(v).toFixed(1) + '" x2="' + (pL + iw) + '" y2="' + y(v).toFixed(1) +
+        '" stroke="rgb(var(--c-' + (v === 0 ? 'ink-faint' : 'line') + '))" stroke-width="1"/>');
+      o.push('<text x="' + (pL - 10) + '" y="' + (y(v) + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)">' +
+        (v === 0 ? 'R$ 0' : br(v, 0)) + '</text>');
+    });
+
+    [1, 5, 10, 15, 20, 25, 30].forEach(function (d) {
+      o.push('<text x="' + x(d - 1).toFixed(1) + '" y="' + (H - 16) + '" text-anchor="middle" font-size="11" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)">' + d + '</text>');
+    });
+    o.push('<text x="' + pL + '" y="' + (H - 2) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)" letter-spacing="1.2">DIA DE SETEMBRO</text>');
+
+    var areaR = 'M' + x(0).toFixed(1) + ',' + y(0).toFixed(1);
+    for (var i = 0; i < REAL_DAYS; i++) areaR += ' L' + x(i).toFixed(1) + ',' + y(acum[i]).toFixed(1);
+    areaR += ' L' + x(REAL_DAYS - 1).toFixed(1) + ',' + y(0).toFixed(1) + ' Z';
+    o.push('<path d="' + areaR + '" fill="rgb(var(--c-accent))" opacity=".08"/>');
+
+    var pm = acum.map(function (_, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(meta[i]).toFixed(1); }).join(' ');
+    o.push('<path d="' + pm + '" fill="none" stroke="rgb(var(--c-ink))" stroke-width="1.3" opacity=".55"/>');
+
+    var pr = '';
+    for (var j = 0; j < REAL_DAYS; j++) pr += (j ? 'L' : 'M') + x(j).toFixed(1) + ',' + y(acum[j]).toFixed(1) + ' ';
+    o.push('<path d="' + pr + '" fill="none" stroke="rgb(var(--c-accent))" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>');
+
+    var pp = '';
+    for (var k = REAL_DAYS - 1; k < acum.length; k++) pp += (k === REAL_DAYS - 1 ? 'M' : 'L') + x(k).toFixed(1) + ',' + y(acum[k]).toFixed(1) + ' ';
+    o.push('<path d="' + pp + '" fill="none" stroke="rgb(var(--c-accent))" stroke-width="1.6" stroke-dasharray="3 4" opacity=".55"/>');
+
+    for (var m = 0; m < REAL_DAYS; m++) {
+      o.push('<circle cx="' + x(m).toFixed(1) + '" cy="' + y(acum[m]).toFixed(1) + '" r="3.4" fill="rgb(var(--c-canvas))" stroke="rgb(var(--c-accent))" stroke-width="2"/>');
+    }
+
+    o.push('<line x1="' + x(3).toFixed(1) + '" y1="' + pT + '" x2="' + x(3).toFixed(1) + '" y2="' + (pT + ih) + '" stroke="rgb(var(--c-ink))" stroke-width="1" stroke-dasharray="2 3" opacity=".38"/>');
+    o.push('<text x="' + (x(3) + 6).toFixed(1) + '" y="' + (pT + 11) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)" letter-spacing="1">HOJE · 04/09</text>');
+
+    o.push('<text x="' + (x(3) + 8).toFixed(1) + '" y="' + (y(573.5) - 12).toFixed(1) + '" font-size="13" font-weight="600" fill="rgb(var(--c-accent))" font-family="var(--font-serif)">R$ 573,50</text>');
+    o.push('<text x="' + (x(3) + 8).toFixed(1) + '" y="' + (y(573.5) + 2).toFixed(1) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)">realizado apurado</text>');
+
+    o.push('<text x="' + (x(29) + 10).toFixed(1) + '" y="' + (y(3000) + 4).toFixed(1) + '" font-size="11" font-weight="700" fill="rgb(var(--c-ink-muted))" font-family="var(--font-sans)" letter-spacing=".8">META</text>');
+    o.push('<text x="' + (x(29) + 10).toFixed(1) + '" y="' + (y(3000) + 19).toFixed(1) + '" font-size="12" fill="rgb(var(--c-ink-muted))" font-family="var(--font-serif)">R$ 3.000,00</text>');
+
+    o.push('<text x="' + (x(29) + 10).toFixed(1) + '" y="' + (y(1842.5) + 4).toFixed(1) + '" font-size="11" font-weight="700" fill="rgb(var(--c-accent))" font-family="var(--font-sans)" letter-spacing=".8">PROJEÇÃO</text>');
+    o.push('<text x="' + (x(29) + 10).toFixed(1) + '" y="' + (y(1842.5) + 19).toFixed(1) + '" font-size="12" fill="rgb(var(--c-ink-muted))" font-family="var(--font-serif)">R$ 1.842,50</text>');
+
+    o.push('</svg>');
+    $('#chartLine').innerHTML = o.join('');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Gráfico 2 — resultado por dia                                       */
+  /* ------------------------------------------------------------------ */
+  function grafBarras() {
+    var W = 840, H = 240, pL = 60, pR = 108, pT = 22, pB = 34;
+    var iw = W - pL - pR, ih = H - pT - pB;
+    var TOP = 400, BOT = -260, SPAN = TOP - BOT;
+    var y = function (v) { return pT + (TOP - v) / SPAN * ih; };
+    var slot = iw / 30, bw = slot * 0.56;
+    var o = [];
+    o.push('<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Resultado líquido por dia de setembro de 2026">');
+    o.push('<title>Resultado por dia — quatro dias apurados e projeção</title>');
+
+    [400, 200, 0, -200].forEach(function (v) {
+      o.push('<line x1="' + pL + '" y1="' + y(v).toFixed(1) + '" x2="' + (pL + iw) + '" y2="' + y(v).toFixed(1) +
+        '" stroke="rgb(var(--c-' + (v === 0 ? 'ink-faint' : 'line') + '))" stroke-width="1"' + (v === 0 ? '' : ' opacity=".9"') + '/>');
+      o.push('<text x="' + (pL - 10) + '" y="' + (y(v) + 4).toFixed(1) + '" text-anchor="end" font-size="11" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)">' +
+        (v < 0 ? MINUS : '') + br(Math.abs(v), 0) + '</text>');
+    });
+
+    diario.forEach(function (v, i) {
+      var cx = pL + i * slot + slot / 2;
+      var yy = Math.min(y(v), y(0)), hh = Math.abs(y(v) - y(0));
+      var real = i < REAL_DAYS;
+      var cor = v >= 0 ? 'var(--c-positive)' : 'var(--c-negative)';
+      if (real) {
+        o.push('<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + yy.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(hh, 1).toFixed(1) + '" fill="rgb(' + cor + ')"/>');
+      } else {
+        o.push('<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + yy.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(hh, 1).toFixed(1) +
+          '" fill="rgb(' + cor + ')" fill-opacity=".10" stroke="rgb(' + cor + ')" stroke-width="1" stroke-opacity=".45" stroke-dasharray="2 2"/>');
+      }
+    });
+
+    var cx4 = pL + 3 * slot + slot / 2;
+    o.push('<line x1="' + cx4.toFixed(1) + '" y1="' + (y(384) - 6).toFixed(1) + '" x2="' + cx4.toFixed(1) + '" y2="' + (y(384) - 20).toFixed(1) + '" stroke="rgb(var(--c-ink-faint))" stroke-width="1"/>');
+    o.push('<text x="' + (cx4 + 6).toFixed(1) + '" y="' + (y(384) - 22).toFixed(1) + '" font-size="12" font-weight="600" fill="rgb(var(--c-positive))" font-family="var(--font-serif)">+R$ 384,00 <tspan font-family="var(--font-sans)" font-size="10" font-weight="400" fill="rgb(var(--c-ink-faint))">melhor dia</tspan></text>');
+
+    var cx3 = pL + 2 * slot + slot / 2;
+    o.push('<line x1="' + cx3.toFixed(1) + '" y1="' + (y(-227.5) + 6).toFixed(1) + '" x2="' + cx3.toFixed(1) + '" y2="' + (y(-227.5) + 18).toFixed(1) + '" stroke="rgb(var(--c-ink-faint))" stroke-width="1"/>');
+    o.push('<text x="' + (cx3 + 6).toFixed(1) + '" y="' + (y(-227.5) + 26).toFixed(1) + '" font-size="12" font-weight="600" fill="rgb(var(--c-negative))" font-family="var(--font-serif)">' + MINUS + 'R$ 227,50 <tspan font-family="var(--font-sans)" font-size="10" font-weight="400" fill="rgb(var(--c-ink-faint))">pior dia</tspan></text>');
+
+    [1, 5, 10, 15, 20, 25, 30].forEach(function (d) {
+      o.push('<text x="' + (pL + (d - 1) * slot + slot / 2).toFixed(1) + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)">' + d + '</text>');
+    });
+    o.push('<text x="' + (pL + iw + 10) + '" y="' + (pT + 12) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)" letter-spacing="1">APURADO</text>');
+    o.push('<text x="' + (pL + iw + 10) + '" y="' + (pT + 28) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)" letter-spacing="1">DIAS 1 A 4</text>');
+    o.push('<text x="' + (pL + iw + 10) + '" y="' + (pT + 52) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)" letter-spacing="1">VAZADO =</text>');
+    o.push('<text x="' + (pL + iw + 10) + '" y="' + (pT + 68) + '" font-size="10" fill="rgb(var(--c-ink-faint))" font-family="var(--font-sans)" letter-spacing="1">PROJEÇÃO</text>');
+    o.push('</svg>');
+    $('#chartBars').innerHTML = o.join('');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Gráfico 3 — participação dos sócios                                 */
+  /* ------------------------------------------------------------------ */
+  function grafShare() {
+    var el = $('#chartShare');
+    if (!el) return;
+    var W = 840, H = 96;
+    var socios = [
+      { n: 'Cesar Lima', p: 45, v: 829.13, c: 'var(--seg1)' },
+      { n: 'Marina Alves', p: 30, v: 552.75, c: 'var(--seg2)' },
+      { n: 'Rafael Duarte', p: 15, v: 276.38, c: 'var(--seg3)' },
+      { n: 'Bruno Teixeira', p: 10, v: 184.25, c: 'var(--seg4)' }
+    ];
+    var o = ['<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Participação dos sócios: Cesar Lima 45%, Marina Alves 30%, Rafael Duarte 15%, Bruno Teixeira 10%">'];
+    var x = 0;
+    socios.forEach(function (s) {
+      var w = s.p / 100 * W;
+      o.push('<rect x="' + x.toFixed(1) + '" y="0" width="' + (w - 2).toFixed(1) + '" height="34" fill="' + s.c + '"/>');
+      o.push('<text x="' + (x + (w - 2) / 2).toFixed(1) + '" y="56" text-anchor="middle" font-size="15" font-weight="600" font-family="var(--font-serif)" fill="rgb(var(--c-ink))">' + br(s.p, 1) + '%</text>');
+      o.push('<text x="' + (x + (w - 2) / 2).toFixed(1) + '" y="73" text-anchor="middle" font-size="11" font-family="var(--font-sans)" fill="rgb(var(--c-ink-muted))">' + s.n + '</text>');
+      o.push('<text x="' + (x + (w - 2) / 2).toFixed(1) + '" y="89" text-anchor="middle" font-size="11" font-family="var(--font-sans)" fill="rgb(var(--c-positive))">+R$ ' + br(s.v) + '</text>');
+      x += w;
+    });
+    o.push('</svg>');
+    el.innerHTML = o.join('');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Calendário de metas                                                 */
+  /* ------------------------------------------------------------------ */
+  function calendario() {
+    var el = $('#calendario');
+    if (!el) return;
+    var dow = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    var o = dow.map(function (d) { return '<div class="dow"><span class="smallcaps">' + d + '</span></div>'; });
+    for (var b = 0; b < 2; b++) o.push('<div class="day empty" aria-hidden="true"></div>');
+    for (var d = 1; d <= 30; d++) {
+      var i = d - 1, real = i < REAL_DAYS, v = diario[i];
+      var cls = 'day' + (real ? '' : ' future') + (d === 4 ? ' today' : '');
+      var linha = '<div class="' + cls + '">';
+      linha += '<div style="display:flex;align-items:baseline;gap:6px"><span class="dnum">' + d + '</span>';
+      if (d === 4) linha += '<span class="dflag" style="color:rgb(var(--c-accent))">hoje</span>';
+      linha += '</div>';
+      linha += '<span class="dgoal">meta R$ 100,00</span>';
+      if (real) {
+        linha += '<span class="dval ' + (v >= 0 ? 'pos' : 'neg') + '">' + signed(v) + '</span>';
+        linha += '<span class="dflag ' + (v >= 100 ? 'pos' : 'neg') + '">' + (v >= 100 ? 'meta batida' : 'abaixo') + '</span>';
+      } else {
+        linha += '<span class="dval faint" style="font-weight:400">—</span>';
+        linha += '<span class="dflag faint" style="font-weight:400;letter-spacing:0;text-transform:none">sem lançamento</span>';
+      }
+      linha += '</div>';
+      o.push(linha);
+    }
+    el.innerHTML = o.join('');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Tabela de entradas + filtros                                        */
+  /* ------------------------------------------------------------------ */
+  function renderEntradas() {
+    var q = ($('#fBusca').value || '').toLowerCase().trim();
+    var st = $('#fStatus').value, so = $('#fSocio').value;
+    var list = ENTRADAS.filter(function (e) {
+      if (st && e.sta !== st) return false;
+      if (so && e.s !== so) return false;
+      if (q && (e.ev + ' ' + e.mk).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    var corpo = $('#corpoEntradas');
+    var somaStake = 0, somaRes = 0;
+    corpo.innerHTML = list.map(function (e) {
+      somaStake += e.st;
+      somaRes += (e.r === null ? 0 : e.r);
+      var res = e.r === null
+        ? '<span class="faint">—</span>'
+        : (e.r === 0 ? '<span class="num faint">R$ 0,00</span>'
+          : '<span class="num ' + (e.r > 0 ? 'pos' : 'neg') + '" style="font-weight:600">' + signed(e.r) + '</span>');
+      return '<tr>' +
+        '<td class="num muted">' + e.d + '</td>' +
+        '<td><div class="cell-main">' + e.ev + '</div><div class="cell-sub">' + e.mk + '</div></td>' +
+        '<td class="muted">' + e.s + '</td>' +
+        '<td class="r num">' + money(e.st) + '</td>' +
+        '<td class="c"><span class="tag ' + TAG[e.sta][0] + '">' + TAG[e.sta][1] + '</span></td>' +
+        '<td class="r">' + res + '</td>' +
+        '<td class="r"><button class="btn ghost sm" type="button" data-edit="' + e.ev + '">Editar</button></td>' +
+        '</tr>';
+    }).join('') + (list.length
+      ? '<tr class="total"><td colspan="3">Soma dos registros exibidos</td><td class="r num">' + money(somaStake) +
+        '</td><td></td><td class="r num ' + (somaRes >= 0 ? 'pos' : 'neg') + '">' + signed(somaRes) + '</td><td></td></tr>'
+      : '');
+    $('#vazioEntradas').hidden = list.length > 0;
+    $('#tabEntradas').parentNode.hidden = list.length === 0;
+    $('#filtroInfo').textContent = 'Exibindo ' + list.length + ' de ' + ENTRADAS.length +
+      ' registros carregados (as 48 entradas do mês são paginadas de 8 em 8).';
+  }
+  ['#fBusca', '#fStatus', '#fSocio'].forEach(function (s) {
+    $(s).addEventListener('input', renderEntradas);
+    $(s).addEventListener('change', renderEntradas);
+  });
+  function limpar() {
+    $('#fBusca').value = ''; $('#fStatus').value = ''; $('#fSocio').value = '';
+    renderEntradas();
+  }
+  $('#btnLimpar').addEventListener('click', limpar);
+  $('#btnLimpar2').addEventListener('click', limpar);
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-edit]') : null;
+    if (b) toast('Protótipo: a edição de "' + b.getAttribute('data-edit') + '" não está ligada ao banco.');
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Modal de nova entrada                                               */
+  /* ------------------------------------------------------------------ */
+  var ultimoFoco = null;
+  function abrirModal() {
+    ultimoFoco = document.activeElement;
+    $('#modalScrim').setAttribute('data-open', 'true');
+    $('#nEvento').focus();
+  }
+  function fecharModal() {
+    var m = $('#modalScrim');
+    if (!m || m.getAttribute('data-open') !== 'true') return;
+    m.removeAttribute('data-open');
+    if (ultimoFoco) ultimoFoco.focus();
+  }
+  $('#btnNovaEntrada').addEventListener('click', abrirModal);
+  $('#btnFecharModal').addEventListener('click', fecharModal);
+  $('#btnCancelar').addEventListener('click', fecharModal);
+  $('#modalScrim').addEventListener('mousedown', function (e) { if (e.target === this) fecharModal(); });
+
+  var LIMITE = 68.42;
+  $('#nStake').addEventListener('input', function () {
+    var v = parseFloat(this.value.replace(/\./g, '').replace(',', '.'));
+    var hint = $('#stakeHint'), aviso = $('#avisoRisco'), motivo = $('#motivoWrap');
+    if (!isNaN(v) && v > LIMITE) {
+      hint.className = 'field-hint danger';
+      hint.textContent = 'Acima do limite: ' + money(v) + ' excede R$ 68,42 em ' + money(v - LIMITE) + '.';
+      aviso.className = 'callout bad';
+      aviso.querySelector('b').textContent = 'Fora do limite de risco';
+      motivo.hidden = false;
+    } else {
+      hint.className = 'field-hint';
+      hint.textContent = 'Limite por entrada: R$ 68,42';
+      aviso.className = 'callout';
+      aviso.querySelector('b').textContent = 'Aviso de limite';
+      motivo.hidden = true;
+    }
+  });
+  $('#formEntrada').addEventListener('submit', function (e) {
+    e.preventDefault();
+    fecharModal();
+    toast('Protótipo de design: a entrada não é gravada no banco.');
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Login e período                                                     */
+  /* ------------------------------------------------------------------ */
+  $('#loginForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('#loginErr');
+    if (!$('#email').value || !$('#senha').value) {
+      err.hidden = false;
+      err.className = 'field-hint danger';
+      err.textContent = 'Informe e-mail e senha para entrar.';
+      return;
+    }
+    err.hidden = true;
+    location.hash = '#dashboard';
+  });
+  $('#periodo').addEventListener('change', function () {
+    if (this.value !== '2026-09') {
+      toast('Protótipo: apenas setembro de 2026 tem dados carregados.');
+      this.value = '2026-09';
+    }
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Início                                                              */
+  /* ------------------------------------------------------------------ */
+  grafLinha();
+  grafBarras();
+  grafShare();
+  calendario();
+  renderEntradas();
+  mostrar(rota());
+})();
+</script>
+</body>
+</html>
