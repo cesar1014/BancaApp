@@ -95,6 +95,31 @@ docker run --name banca-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=banca -p
 
 5. **Deploy**. A Vercel roda `npm run build` automaticamente.
 
+6. **Primeiro acesso**: entre com `cesar1014` e a senha padrão `FZN2026`. O
+   sistema exige a troca da senha antes de liberar qualquer página.
+
+### Rotinas automáticas (cron)
+
+O `vercel.json` já traz duas rotinas diárias — coleta de bilhetes às 08:00 e
+atualização das dicas às 14:00 (horário de Brasília). Para elas funcionarem,
+defina na Vercel a variável `CRON_SECRET` **com o mesmo valor** de
+`WORKER_SECRET`: a Vercel envia esse segredo no cabeçalho `Authorization`, que
+é o que os workers verificam.
+
+O plano Hobby da Vercel permite duas rotinas, uma vez por dia cada — é o que
+está configurado. Isso basta porque as páginas de Dicas também se atualizam
+sozinhas quando alguém as abre (`SPORTS_REFRESH_ON_VIEW=true`), respeitando o
+mesmo controle de quota.
+
+Para acompanhamento ao vivo de verdade, aumente a frequência da rotina
+`sports` no `vercel.json` (plano Pro) ou aponte um cron externo gratuito
+(cron-job.org, GitHub Actions) para:
+
+```
+POST https://SEU-APP/api/workers/sports?job=live
+Authorization: Bearer <WORKER_SECRET>
+```
+
 O endpoint `/api/health` responde `200` quando o banco está acessível — útil
 para monitoramento.
 
