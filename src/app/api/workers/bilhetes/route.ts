@@ -3,7 +3,11 @@ import { collectAllSources, settleOpenSlips, verifyOpenSlips } from '@/lib/servi
 import { workerSecret } from '@/lib/services/sports/runtime';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+
+// Sem maxDuration: o valor máximo varia por plano da Vercel e declarar um
+// número acima do permitido faz o deploy ser recusado. O trabalho é salvo
+// de forma incremental — se a plataforma interromper, a chamada seguinte
+// continua de onde parou, respeitando os mesmos cooldowns.
 
 /**
  * Worker dos Bilhetes.

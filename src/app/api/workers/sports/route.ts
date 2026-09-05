@@ -3,7 +3,11 @@ import { runAllJobs, runJob, type JobName } from '@/lib/services/sports/engine';
 import { workerSecret } from '@/lib/services/sports/runtime';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+
+// Sem maxDuration: o valor máximo varia por plano da Vercel e declarar um
+// número acima do permitido faz o deploy ser recusado. O trabalho é salvo
+// de forma incremental — se a plataforma interromper, a chamada seguinte
+// continua de onde parou, respeitando os mesmos cooldowns.
 
 const JOBS: readonly JobName[] = ['fixtures', 'live', 'odds', 'settle', 'performance'];
 
