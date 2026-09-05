@@ -1,0 +1,103 @@
+# =============================================================================
+# Agendador das rotinas em produção.
+#
+# POR QUE ISTO EXISTE
+#
+# A Vercel só oferece cron em plano pago, e o app roda no gratuito. Sem um
+# agendador nada dispara as rotinas: o calendário não é buscado, o placar ao
+# vivo não avança e as dicas congelam no último dado gravado. Foi exatamente o
+# que aconteceu — a tela ficou uma hora atrás da realidade, mostrando um jogo
+# no intervalo quando ele já tinha acabado 2 a 0.
+#
+# GitHub Actions cobre isso de graça, e o repositório já está aqui.
+#
+# O QUE PRECISA SER CONFIGURADO (uma coisa só)
+#
+#   Settings → Secrets and variables → Actions → New repository secret
+#     Name:   WORKER_SECRET
+#     Secret: o mesmo valor que está na Vercel
+#
+# Se o endereço do app mudar, troque APP_URL logo abaixo.
+#
+# LIMITE CONHECIDO
+#
+# O cron do GitHub tem intervalo mínimo de 5 minutos e costuma atrasar alguns
+# minutos quando a plataforma está carregada. Para acompanhar jogo ao vivo é
+# aceitável, não é ideal. Precisão de segundos exigiria cron dedicado ou o
+# plano pago da Vercel.
+#
+# As rotinas têm cooldown próprio no banco, então disparar com frequência não
+# gasta quota de API à toa: a chamada simplesmente não faz nada se for cedo.
+# =============================================================================
+name: Rotinas de produção
+
+env:
+  APP_URL: https://banca-app.vercel.app
+
+on:
+  schedule:
+    - cron: '*/5 * * * *' # ao vivo e liquidação
+    - cron: '*/30 * * * *' # cotações e calls do Telegram
+    - cron: '10 3,11,19 * * *' # calendário, desempenho e bilhetes
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Rotina de sports a executar'
+        required: false
+        default: 'live'
+        type: choice
+        options: [live, odds, fixtures, settle, performance, all]
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conferir o segredo
+        run: |
+          if [ -z "${{ secrets.WORKER_SECRET }}" ]; then
+            echo "::error::WORKER_SECRET não configurado. Vá em Settings → Secrets and variables → Actions e crie o segredo com o mesmo valor que está na Vercel."
+            exit 1
+          fi
+
+      - name: Ao vivo e liquidação
+        if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+        env:
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+          JOB: ${{ github.event.inputs.job || 'live' }}
+        run: |
+          for rotina in "$JOB" settle; do
+            echo "→ sports/$rotina"
+            curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
+              -H "Authorization: Bearer $WORKER_SECRET" \
+              "$APP_URL/api/workers/sports?job=$rotina" || echo "  falhou, segue"
+          done
+
+      - name: Cotações e calls
+        if: github.event.schedule == '*/30 * * * *'
+        env:
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+        run: |
+          echo "→ sports/odds"
+          curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
+            -H "Authorization: Bearer $WORKER_SECRET" \
+            "$APP_URL/api/workers/sports?job=odds" || echo "  falhou, segue"
+          echo "→ bilhetes/calls"
+          curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
+            -H "Authorization: Bearer $WORKER_SECRET" \
+            "$APP_URL/api/workers/bilhetes?job=calls" || echo "  falhou, segue"
+
+      - name: Calendário, desempenho e bilhetes
+        if: github.event.schedule == '10 3,11,19 * * *'
+        env:
+          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+        run: |
+          for rotina in fixtures performance; do
+            echo "→ sports/$rotina"
+            curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
+              -H "Authorization: Bearer $WORKER_SECRET" \
+              "$APP_URL/api/workers/sports?job=$rotina" || echo "  falhou, segue"
+          done
+          echo "→ bilhetes/all"
+          curl -sS --max-time 180 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
+            -H "Authorization: Bearer $WORKER_SECRET" \
+            "$APP_URL/api/workers/bilhetes?job=all" || echo "  falhou, segue"

@@ -514,7 +514,11 @@ export async function acquireJob(job: string, cooldownSeconds: number): Promise<
      ON CONFLICT (job) DO UPDATE SET last_run_at = now(), last_status = 'RUNNING', runs = sports_jobs.runs + 1
      WHERE sports_jobs.last_run_at IS NULL
         OR sports_jobs.last_run_at < now() - ($2 || ' seconds')::interval
-        OR (sports_jobs.last_status = 'RUNNING' AND sports_jobs.last_run_at < now() - INTERVAL '10 minutes')
+        -- Rotina marcada como RUNNING e velha demais foi interrompida pela
+        -- plataforma antes de gravar o fim (timeout da função serverless).
+        -- Três minutos cobrem com folga o teto de 60 s de execução e liberam a
+        -- vez antes do próximo disparo do agendador, que roda a cada cinco.
+        OR (sports_jobs.last_status = 'RUNNING' AND sports_jobs.last_run_at < now() - INTERVAL '3 minutes')
      RETURNING job`,
     [job, String(cooldownSeconds)],
   );

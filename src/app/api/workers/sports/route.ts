@@ -4,10 +4,16 @@ import { workerSecret } from '@/lib/services/sports/runtime';
 
 export const dynamic = 'force-dynamic';
 
-// Sem maxDuration: o valor máximo varia por plano da Vercel e declarar um
-// número acima do permitido faz o deploy ser recusado. O trabalho é salvo
-// de forma incremental — se a plataforma interromper, a chamada seguinte
-// continua de onde parou, respeitando os mesmos cooldowns.
+/**
+ * Sessenta segundos e o teto do plano gratuito da Vercel, e a rotina precisa
+ * dele: buscar o calendario leva ~55s e o ao vivo ~40s. Sem esta linha vale o
+ * padrao de 10 segundos e a funcao morre no meio, sem gravar quase nada.
+ *
+ * O trabalho e salvo de forma incremental, entao uma interrupcao nao perde o
+ * que ja foi gravado: a chamada seguinte continua de onde parou.
+ */
+export const maxDuration = 60;
+
 
 const JOBS: readonly JobName[] = ['fixtures', 'live', 'odds', 'settle', 'performance'];
 
