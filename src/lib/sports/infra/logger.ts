@@ -23,7 +23,8 @@ export type SportsLogEvent =
   | 'odds.error'
   | 'cache.hit'
   | 'worker.run'
-  | 'worker.skip';
+  | 'worker.skip'
+  | 'worker.blocked';
 
 const SECRET_PATTERN = /(key|token|secret|authorization|apikey|api_key)/i;
 const SUPPRESS_WINDOW_MS = 30_000;

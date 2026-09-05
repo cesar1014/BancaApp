@@ -178,6 +178,47 @@ export async function getStoredFixture(id: string): Promise<StoredFixture | null
   return row ? mapStored(row) : null;
 }
 
+/**
+ * Existe alguma partida vinda de provedor real?
+ *
+ * Usada para impedir que o simulador escreva por cima de um banco de verdade.
+ * Basta uma: se qualquer partida veio de provedor real, o banco não é de
+ * desenvolvimento e não deve receber dado inventado.
+ */
+export async function hasRealFixtures(): Promise<boolean> {
+  const row = await queryOne<{ existe: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM sport_fixtures
+       WHERE provider_ids ?| array['api-football','sportmonks','odds-api']
+     ) AS existe`,
+  );
+  return row?.existe ?? false;
+}
+
+/**
+ * Remove partidas simuladas e tudo que depende delas.
+ *
+ * Só apaga o que veio EXCLUSIVAMENTE do simulador: uma partida real que
+ * também tenha id do mock (nunca deveria acontecer, mas o banco não garante)
+ * permanece. Devolve quantas partidas e quantas dicas saíram.
+ */
+export async function purgeMockFixtures(): Promise<{ fixtures: number; tips: number }> {
+  const tips = await query<{ id: string }>(
+    `DELETE FROM bet_tips WHERE fixture_id IN (
+       SELECT id FROM sport_fixtures
+       WHERE provider_ids ? 'mock'
+         AND NOT (provider_ids ?| array['api-football','sportmonks','odds-api'])
+     ) RETURNING id`,
+  );
+  const fixtures = await query<{ id: string }>(
+    `DELETE FROM sport_fixtures
+     WHERE provider_ids ? 'mock'
+       AND NOT (provider_ids ?| array['api-football','sportmonks','odds-api'])
+     RETURNING id`,
+  );
+  return { fixtures: fixtures.length, tips: tips.length };
+}
+
 export async function listFixturesBetween(from: Date, to: Date): Promise<StoredFixture[]> {
   const rows = await query<FixtureRow>(
     'SELECT * FROM sport_fixtures WHERE start_time >= $1 AND start_time < $2 ORDER BY start_time ASC',

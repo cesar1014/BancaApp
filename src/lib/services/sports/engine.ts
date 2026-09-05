@@ -4,6 +4,7 @@ import {
   countSnapshots,
   finishJob,
   getStoredFixture,
+  hasRealFixtures,
   insertLiveSnapshot,
   insertOddsSnapshots,
   listFixturesBetween,
@@ -103,8 +104,49 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * 24 * 3600 * 1000);
 }
 
-async function withJob(job: JobName, cooldownSeconds: number, run: () => Promise<string>): Promise<JobReport> {
+/**
+ * TRAVA DO MODO SIMULAÇÃO.
+ *
+ * O simulador existe para desenvolver sem gastar quota, e por isso grava no
+ * banco como qualquer provedor. Isso é inofensivo num banco de trabalho e
+ * perigoso num banco que já tem dado real: as partidas inventadas entram
+ * lado a lado com as verdadeiras, e a interface passa a indicar apostas em
+ * jogos que não existem.
+ *
+ * Foi exatamente o que aconteceu quando a aplicação subiu para produção sem
+ * a variável DATA_PROVIDER_MODE: ela caiu no padrão "mock" e escreveu 118
+ * partidas fictícias no mesmo banco onde havia 106 reais. Oito das dez dicas
+ * ativas apontavam para jogo inventado.
+ *
+ * A partir daqui o simulador não escreve em banco que já viu provedor real.
+ * A leitura continua funcionando — a interface mostra o que existe e avisa
+ * que está em simulação —, só a gravação para.
+ */
+async function mockWouldPollute(runtime: SportsRuntime): Promise<boolean> {
+  if (runtime.dataLayer.providers.mode !== 'mock' && !runtime.dataLayer.providers.usingMockFallback) return false;
+  try {
+    return await hasRealFixtures();
+  } catch {
+    // Sem conseguir verificar, o lado seguro é não gravar.
+    return true;
+  }
+}
+
+async function withJob(
+  job: JobName,
+  cooldownSeconds: number,
+  run: () => Promise<string>,
+  runtime: SportsRuntime = getSportsRuntime(),
+): Promise<JobReport> {
   const started = Date.now();
+
+  if (await mockWouldPollute(runtime)) {
+    const message =
+      'modo simulação bloqueado: o banco já tem partidas reais. Defina DATA_PROVIDER_MODE=live e as chaves dos provedores.';
+    sportsLog('warn', 'worker.blocked', { job, message });
+    return { job, ran: false, message, durationMs: Date.now() - started };
+  }
+
   const acquired = await acquireJob(job, cooldownSeconds);
   if (!acquired) {
     sportsLog('debug', 'worker.skip', { job });
