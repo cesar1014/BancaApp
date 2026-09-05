@@ -149,6 +149,7 @@ para monitoramento.
 | `npm run db:seed` | cria a banca, as configurações e o administrador |
 | `npm run db:seed -- --demo` | acrescenta sócios e entradas de exemplo |
 | `npm run db:reset` | **apaga tudo** e recria o schema (pede confirmação) |
+| `npm run user:add -- <nick> "<Nome>"` | cria uma conta de acesso nova, com a senha padrão e troca obrigatória |
 | `npm run sports:worker` | worker local da Central de Dicas (chama `/api/workers/sports`) |
 | `npm test` | suíte de testes do domínio, das dicas e dos bilhetes (128 casos, sem banco nem rede) |
 | `npm run typecheck` | verificação de tipos |
