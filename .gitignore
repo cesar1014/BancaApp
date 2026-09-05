@@ -12,3 +12,6 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 coverage/
+
+# Configuração local do assistente
+.claude/

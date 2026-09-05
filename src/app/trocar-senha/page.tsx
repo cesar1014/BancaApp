@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth/session';
 import { AuthFrame } from '@/app/login/auth-frame';
-import { SetupPasswordForm } from './setup-form';
+import { SetupLogout, SetupPasswordForm } from './setup-form';
 
 export const metadata: Metadata = { title: 'Definir senha' };
 export const dynamic = 'force-dynamic';
@@ -22,6 +22,7 @@ export default async function SetupPasswordPage() {
       subtitle="Sua conta ainda usa a senha padrão. Defina uma senha só sua para continuar."
     >
       <SetupPasswordForm />
+      <SetupLogout />
     </AuthFrame>
   );
 }

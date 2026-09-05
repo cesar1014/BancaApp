@@ -160,12 +160,17 @@ function statsAt(script: MockScript, minute: number, side: 'HOME' | 'AWAY'): Tea
   const share = strength / (strength + otherStrength);
   const noise = () => 0.85 + rng() * 0.3;
 
-  const shots = Math.round(0.28 * script.tempo * share * 2 * minute * noise());
+  // ~13 finalizações por time em 90 minutos, que é a média real do futebol.
+  const shots = Math.round(0.145 * script.tempo * share * 2 * minute * noise());
   const sot = Math.round(shots * (0.3 + rng() * 0.15));
-  const corners = Math.round(script.cornersPerMinute * share * 2 * minute * noise());
+  // cornersPerMinute é a taxa do JOGO. A parte de cada time é a sua fração —
+  // sem o "× 2" dos demais indicadores, que são medidos por time.
+  const corners = Math.round(script.cornersPerMinute * share * minute * noise());
   const goals = script.goalMinutes.filter((g) => g.team === side && g.minute <= minute).length;
   const cards = script.cardMinutes.filter((c) => c.team === side && c.minute <= minute);
-  const xg = Math.round((sot * 0.28 + (shots - sot) * 0.06 + goals * 0.15) * 1000 * noise());
+  // Um chute no alvo vale ~0,16 de gol esperado e um chute fora ~0,03: com
+  // isso o xG de um jogo inteiro fica perto dos 2,7 reais, e não no dobro.
+  const xg = Math.round((sot * 0.16 + (shots - sot) * 0.03 + goals * 0.1) * 1000 * noise());
 
   return {
     possessionBps: Math.round(share * 10_000),
@@ -260,8 +265,23 @@ function buildFixture(script: MockScript, index: number, now: Date, detailed: bo
 function buildOdds(script: MockScript, fixture: NormalizedFixture, now: Date): OddsQuote[] {
   const minute = fixture.minute ?? 0;
   const remaining = Math.max(0, 94 - minute);
-  const expectedPer90 = (script.league.avgGoalsMilli / 1000) * (0.7 + script.tempo * 0.35);
-  const lambda = (expectedPer90 / 90) * remaining;
+
+  /**
+   * As casas precificam a partir do que está acontecendo no jogo, não de um
+   * roteiro secreto. Por isso o λ das odds parte do xG já produzido, na mesma
+   * mistura que o motor usa, e só depois recebe margem e ruído.
+   *
+   * Sem isso, o simulador e o motor olhavam para números diferentes e o
+   * resultado eram "oportunidades" de +50% de value, que não existem no mundo
+   * real e ensinariam a expectativa errada a quem usa o app.
+   */
+  const basePerMinute = (script.league.avgGoalsMilli / 1000) * (0.7 + script.tempo * 0.35) / 90;
+  const xgMilli = (fixture.statistics?.home.xgMilli ?? 0) + (fixture.statistics?.away.xgMilli ?? 0);
+  const observedPerMinute = minute >= 5 && xgMilli > 0 ? xgMilli / 1000 / minute : null;
+  const observedWeight = observedPerMinute === null ? 0 : Math.min(0.6, minute / 60);
+  const ratePerMinute =
+    observedPerMinute === null ? basePerMinute : observedWeight * observedPerMinute + (1 - observedWeight) * basePerMinute;
+  const lambda = Math.min(ratePerMinute * remaining, (script.league.avgGoalsMilli / 1000) * 2 * (remaining / 90));
   const total = fixture.score.home + fixture.score.away;
   const homeShare = (script.homeStrength + 0.05) / (script.homeStrength + script.awayStrength + 0.05);
 
@@ -272,8 +292,10 @@ function buildOdds(script: MockScript, fixture: NormalizedFixture, now: Date): O
   const push = (market: OddsQuote['market'], selection: OddsQuote['selection'], line: number | null, probability: number) => {
     if (probability <= 0.02 || probability >= 0.98) return;
     for (const bookmaker of BOOKMAKERS) {
-      // As casas erram um pouco (±6%) e embutem ~6% de margem.
-      const noise = 1 + (rng() - 0.5) * 0.12;
+      // Cada casa erra para um lado (±7%) e embute ~6% de margem. Comparar as
+      // três faz a melhor odd ocasionalmente ter value de verdade, na faixa de
+      // um dígito, que é o que se encontra no mercado real.
+      const noise = 1 + (rng() - 0.5) * 0.14;
       const p = Math.min(0.97, Math.max(0.03, probability * noise));
       const oddMilli = Math.round((1000 / p) * 0.94);
       quotes.push({ market, selection, line, oddMilli: Math.max(1_010, oddMilli), bookmaker, provider: 'mock', capturedAt });

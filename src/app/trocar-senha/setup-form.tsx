@@ -64,11 +64,21 @@ export function SetupPasswordForm() {
         Salvar e continuar
       </Button>
 
-      <div className="text-center">
-        <Button type="button" variant="ghost" size="sm" onClick={() => logoutAction()}>
-          Sair
-        </Button>
-      </div>
+    </form>
+  );
+}
+
+/**
+ * Sair fica fora do formulário de senha: dois <form> irmãos, nunca aninhados.
+ * O logout precisa ser um submit de formulário — uma Server Action que
+ * termina em redirect() não navega quando é chamada de um onClick.
+ */
+export function SetupLogout() {
+  return (
+    <form action={logoutAction} className="mt-4 text-center">
+      <Button type="submit" variant="ghost" size="sm">
+        Sair
+      </Button>
     </form>
   );
 }

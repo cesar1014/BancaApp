@@ -71,14 +71,51 @@ export function buildGoalModel(
       ? baseRatePerMinute
       : observedWeight * observedPerMinute + (1 - observedWeight) * baseRatePerMinute;
 
-  // Pressão: acima de 0,45 acelera, abaixo desacelera. Limitado a [0,6; 1,8].
+  /**
+   * Pressão: acima de 0,45 acelera, abaixo desacelera.
+   *
+   * O alcance depende de onde veio a taxa. Quando ela já foi calculada a
+   * partir do que o jogo produziu (xG ou finalizações), a pressão JÁ está
+   * embutida ali — um time que pressiona chuta mais e acumula xG. Aplicar o
+   * multiplicador cheio por cima contaria a mesma coisa duas vezes e faria o
+   * modelo enxergar "value" de +30% onde o mercado está certo. Nesse caso o
+   * ajuste é estreito e serve só para o que o xG acumulado não vê: se a
+   * pressão é de agora ou já passou.
+   *
+   * Sem dado nenhum do jogo, a taxa é a média da competição e a pressão é a
+   * única informação disponível: aí o alcance é largo.
+   */
+  const observedRate = observedPerMinute !== null;
+  const range = observedRate ? 0.2 : 0.6;
   const boost = params.pressureBoost ?? 0.5;
   const pressure = signals.pressureIndex;
-  const rawMultiplier = pressure === null ? 1 : 1 + boost * (pressure - 0.45) * 2;
-  const momentumAdjust = signals.momentum === null ? 0 : (signals.momentum - 0.5) * 0.2;
-  const pressureMultiplier = Math.min(1.8, Math.max(0.6, rawMultiplier + momentumAdjust));
+  const rawEffect = pressure === null ? 0 : boost * (pressure - 0.45) * 2;
+  const momentumEffect = signals.momentum === null ? 0 : (signals.momentum - 0.5) * 0.2;
+  const pressureMultiplier = Math.min(
+    1 + range,
+    Math.max(1 - range, 1 + Math.max(-range, Math.min(range, rawEffect)) + momentumEffect),
+  );
 
-  const lambdaTotal = ratePerMinute * signals.remainingMinutes * pressureMultiplier;
+  /**
+   * Teto de sanidade.
+   *
+   * Sem ele, uma estatística corrompida ou exagerada de qualquer provedor (um
+   * xG de 4,0 aos 30 minutos, por exemplo) vira uma previsão de 6 ou 7 gols
+   * restantes, e daí sai uma "probabilidade" de 99% com value de +70%. Nenhum
+   * jogo real produz isso: o teto limita o esperado ao dobro da média da
+   * competição, proporcional ao tempo que falta.
+   *
+   * O piso protege o caso oposto: um jogo travado não vai a zero gol esperado,
+   * porque a bola ainda pode entrar a qualquer momento.
+   */
+  const shareOfMatch = signals.remainingMinutes / ENGINE_CONFIG.regulationMinutes;
+  const leagueAverage = league.avgGoalsMilli / 1000;
+  const maxLambda = leagueAverage * 2 * shareOfMatch;
+  const minLambda = leagueAverage * 0.15 * shareOfMatch;
+  const lambdaTotal = Math.min(
+    maxLambda,
+    Math.max(minLambda, ratePerMinute * signals.remainingMinutes * pressureMultiplier),
+  );
 
   // Divisão entre os lados: pela dominância (ou pelo xG de cada lado); no
   // pré-jogo, vantagem de mando de ~55/45.

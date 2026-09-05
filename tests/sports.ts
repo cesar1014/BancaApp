@@ -28,6 +28,7 @@ import { computePerformance, computePerformanceBreakdown, tipProfitCents } from 
 import { evaluateFixture, identifiedEntries } from '../src/lib/sports/domain/evaluate';
 import { runBacktest } from '../src/lib/sports/domain/backtest';
 import { STRATEGY_MODULES, findStrategyModule } from '../src/lib/sports/domain/strategies';
+import { buildGoalModel } from '../src/lib/sports/domain/strategies/goal-model';
 import { SportsCache } from '../src/lib/sports/infra/cache';
 import { ProviderQuotaManager, DEFAULT_QUOTA_LIMITS } from '../src/lib/sports/infra/quota';
 import { CircuitBreaker } from '../src/lib/sports/infra/http';
@@ -263,6 +264,63 @@ test('sinais toleram estatística ausente', () => {
   assert.equal(signals.totals.shots, null);
   assert.equal(signals.availability.statistics, false);
   assert.equal(signals.remainingMinutes, 60);
+});
+
+test('estatística exagerada não vira previsão absurda (teto de sanidade)', () => {
+  // xG de 4,0 aos 30 minutos: um provedor com dado corrompido não pode gerar
+  // "6 gols esperados" e, com isso, uma probabilidade de 99% e value de +70%.
+  const louco = fixture({
+    minute: 30,
+    statistics: {
+      ...fixture().statistics!,
+      home: stats({ shots: 30, shotsOnTarget: 15, xgMilli: 4000, dangerousAttacks: 90, possessionBps: 7000, corners: 14 }),
+      away: stats({ shots: 22, shotsOnTarget: 9, xgMilli: 2800, dangerousAttacks: 70, possessionBps: 3000, corners: 9 }),
+    },
+  });
+  const model = buildGoalModel(computeSignals(louco), LEAGUE, { pressureBoost: 0.5 });
+  const restante = (94 - 30) / 90;
+  const teto = (LEAGUE.avgGoalsMilli / 1000) * 2 * restante;
+  assert.ok(model.lambdaTotal <= teto + 1e-9, `lambda ${model.lambdaTotal} passou do teto ${teto}`);
+  assert.ok(model.lambdaTotal < 4, 'nenhum jogo tem 4+ gols esperados no tempo restante');
+
+  const over05 = findStrategyModule('LIVE_OVER_0_5')!.estimate({
+    fixture: louco, signals: computeSignals(louco), league: LEAGUE, prediction: null,
+    config: findStrategyConfig('LIVE_OVER_0_5')!, now: NOW,
+  })[0]!;
+  assert.ok(over05.probabilityBps < 9700, `probabilidade ${over05.probabilityBps} irreal`);
+
+  // A pressão não pode ser contada duas vezes: quando a taxa já vem do xG
+  // observado, ela própria reflete a pressão. Multiplicar de novo por um fator
+  // grande cria "value" que não existe.
+  const pressionado = fixture({
+    minute: 40,
+    statistics: {
+      ...fixture().statistics!,
+      home: stats({ shots: 12, shotsOnTarget: 5, xgMilli: 1200, dangerousAttacks: 55, possessionBps: 7000, corners: 7 }),
+      away: stats({ shots: 3, shotsOnTarget: 1, xgMilli: 250, dangerousAttacks: 12, possessionBps: 3000, corners: 1 }),
+    },
+  });
+  const comXg = buildGoalModel(computeSignals(pressionado), LEAGUE, { pressureBoost: 0.5 });
+  assert.ok(comXg.usedXg, 'este cenário tem xG e deve usá-lo');
+  assert.ok(
+    comXg.pressureMultiplier <= 1.2 && comXg.pressureMultiplier >= 0.8,
+    `com xG observado o ajuste de pressão deve ser estreito, veio ${comXg.pressureMultiplier}`,
+  );
+
+  // Sem estatística nenhuma, a pressão é a única informação: alcance largo.
+  const semDados = fixture({ minute: 40, statistics: null });
+  assert.equal(buildGoalModel(computeSignals(semDados), LEAGUE, {}).pressureMultiplier, 1);
+
+  // O piso protege o oposto: jogo travado ainda tem chance de sair gol.
+  const travado = fixture({
+    minute: 30,
+    statistics: {
+      ...fixture().statistics!,
+      home: stats({ shots: 0, shotsOnTarget: 0, xgMilli: 0, dangerousAttacks: 0, possessionBps: 5000 }),
+      away: stats({ shots: 0, shotsOnTarget: 0, xgMilli: 0, dangerousAttacks: 0, possessionBps: 5000 }),
+    },
+  });
+  assert.ok(buildGoalModel(computeSignals(travado), LEAGUE, {}).lambdaTotal > 0.2);
 });
 
 test('sinais detectam domínio do mandante', () => {
