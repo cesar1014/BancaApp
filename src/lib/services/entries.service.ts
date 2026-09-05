@@ -14,7 +14,6 @@ import {
   updateEntry as updateEntryRow,
 } from '@/lib/repos/entries';
 import { isPeriodClosed } from '@/lib/repos/closings';
-import { listFixturesBetween } from '@/lib/repos/sports';
 import { loadBankrollState } from './context';
 import { isoWeekRange, monthOfDate, monthRange, timeNowIn, todayIn, type IsoDate } from '@/lib/datetime';
 import { recordAudit, diffValues } from '@/lib/audit';
@@ -402,62 +401,4 @@ export async function selectableMembers(user: SessionUser) {
   const own = active.filter((m) => m.id === user.memberId);
   if (own.length === 0) throw notFound('Seu usuário não está vinculado a nenhum sócio desta banca.');
   return own;
-}
-
-// ---------------------------------------------------------------------------
-// Jogos do dia para o formulário
-// ---------------------------------------------------------------------------
-
-/** Um jogo oferecido no seletor do formulário de entrada. */
-export interface MatchOptionView {
-  id: string;
-  home: string;
-  away: string;
-  league: string;
-  time: string;
-  day: string;
-  live: boolean;
-}
-
-/**
- * Jogos de hoje e amanhã, para escolher no lugar de digitar o evento.
- *
- * Lê o calendário que o módulo de Dicas já mantém no banco. Se essas tabelas
- * ainda não existirem, ou se nada foi coletado, devolve lista vazia e o
- * formulário simplesmente pede o evento por escrito.
- */
-export async function listMatchOptions(timezone: string): Promise<MatchOptionView[]> {
-  try {
-    const now = new Date();
-    const from = new Date(now.getTime() - 6 * 3600_000);
-    const to = new Date(now.getTime() + 42 * 3600_000);
-    const stored = await listFixturesBetween(from, to);
-    const today = todayIn(timezone);
-
-    return stored
-      .filter((item) => item.fixture.status !== 'CANCELLED' && item.fixture.status !== 'POSTPONED')
-      .map((item) => {
-        const fixture = item.fixture;
-        const date = new Date(fixture.startTime);
-        const dayIso = new Intl.DateTimeFormat('en-CA', {
-          timeZone: timezone,
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-        }).format(date);
-        return {
-          id: fixture.id,
-          home: fixture.homeTeam.name,
-          away: fixture.awayTeam.name,
-          league: fixture.league.name,
-          time: new Intl.DateTimeFormat('pt-BR', { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(date),
-          day: dayIso === today ? 'hoje' : dayIso > today ? 'amanhã' : 'ontem',
-          live: fixture.status === 'LIVE' || fixture.status === 'HALFTIME',
-        };
-      })
-      .sort((a, b) => Number(b.live) - Number(a.live) || a.time.localeCompare(b.time))
-      .slice(0, 120);
-  } catch {
-    return [];
-  }
 }
