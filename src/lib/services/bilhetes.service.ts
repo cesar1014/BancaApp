@@ -12,6 +12,7 @@ import {
   legMarginBps,
   settleSlip,
   slipComparison,
+  slipProbability,
   slipDedupeHash,
   slipMarginBps,
   slipMoney,
@@ -352,15 +353,22 @@ export interface SlipView extends StoredSlip {
   sourceName: string;
   sourceCountry: SourceCountry;
   comparison: ReturnType<typeof slipComparison>;
+  /** Chance estimada de o bilhete inteiro bater. null sem preço nenhum. */
+  probability: ReturnType<typeof slipProbability>;
+  /** Odd usada nos filtros: a real conferida quando existe, senão a informada. */
+  filterOddMilli: number | null;
 }
 
 function toView(slip: StoredSlip, sources: Map<string, { name: string; country: SourceCountry }>): SlipView {
   const source = sources.get(slip.sourceSlug);
+  const comparison = slipComparison({ informedOddMilli: slip.informedOddMilli, legs: slip.legs });
   return {
     ...slip,
     sourceName: source?.name ?? slip.sourceSlug,
     sourceCountry: source?.country ?? 'INT',
-    comparison: slipComparison({ informedOddMilli: slip.informedOddMilli, legs: slip.legs }),
+    comparison,
+    probability: slipProbability(slip),
+    filterOddMilli: comparison.realOddMilli ?? slip.informedOddMilli,
   };
 }
 

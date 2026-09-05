@@ -64,6 +64,95 @@ export function slipMarginBps(legs: readonly { marginBps: number | null }[]): { 
   return { marginBps: Math.round((product - 1) * BPS), knownLegs: known.length };
 }
 
+/**
+ * PROBABILIDADE REAL DO BILHETE.
+ *
+ * Ordenar por menor odd NÃO é o mesmo que ordenar por maior chance. A odd
+ * implícita (1/odd) já vem inflada pela margem da casa, e numa múltipla essa
+ * margem se acumula perna a perna: cinco pernas a 5% custam ~27,6%, não 5%.
+ * Duas múltiplas pagando 10,00 podem ter chances bem diferentes se uma tem 3
+ * pernas e a outra tem 8 — a de 8 embute muito mais margem e vale menos do que
+ * o preço sugere.
+ *
+ * Por isso a chance é calculada tirando a margem de cada perna antes de
+ * multiplicar:
+ *
+ *   p_perna = (1 / odd) / (1 + margem)
+ *   p_bilhete = ∏ p_perna
+ *
+ * As pernas são tratadas como independentes. É a convenção do mercado e vale
+ * enquanto vêm de jogos diferentes; duas pernas do MESMO jogo são
+ * correlacionadas e aí o número fica otimista. A interface diz de onde veio
+ * cada estimativa para que ninguém confunda cálculo com garantia.
+ */
+
+/** Margem assumida por perna quando não há livro completo para medir (5%). */
+export const ASSUMED_LEG_MARGIN_BPS = 500;
+
+export type ProbabilityBasis = 'CONFERIDA' | 'PARCIAL' | 'INFORMADA';
+
+export interface SlipProbability {
+  probabilityBps: number;
+  /**
+   * CONFERIDA  todas as pernas com odd real e margem medida no livro
+   * PARCIAL    parte das pernas medida; nas demais, margem assumida
+   * INFORMADA  só a odd que a fonte publicou, com margem assumida por perna
+   */
+  basis: ProbabilityBasis;
+  /** Pernas com odd real E margem lida do livro. */
+  devigedLegs: number;
+  legs: number;
+}
+
+/**
+ * Estima a chance do bilhete inteiro bater. null quando não há nem odd por
+ * perna nem odd informada — sem preço não há probabilidade a estimar.
+ */
+export function slipProbability(slip: {
+  informedOddMilli: number | null;
+  legsCount: number;
+  legs: readonly { oddMilli: number | null; realOddMilli: number | null; marginBps: number | null }[];
+}): SlipProbability | null {
+  const legs = slip.legs;
+  const total = legs.length > 0 ? legs.length : slip.legsCount;
+
+  // Caminho preferido: preço perna a perna.
+  const priced = legs.map((leg) => ({
+    oddMilli: leg.realOddMilli ?? leg.oddMilli,
+    marginBps: leg.realOddMilli !== null ? leg.marginBps : null,
+  }));
+  if (legs.length > 0 && priced.every((leg) => leg.oddMilli !== null && leg.oddMilli > MILLI)) {
+    let product = 1;
+    let deviged = 0;
+    for (const leg of priced) {
+      const margin = leg.marginBps ?? ASSUMED_LEG_MARGIN_BPS;
+      if (leg.marginBps !== null) deviged += 1;
+      const implied = MILLI / (leg.oddMilli as number);
+      product *= implied / (1 + margin / BPS);
+    }
+    return {
+      probabilityBps: clamp(Math.round(product * BPS)),
+      basis: deviged === legs.length ? 'CONFERIDA' : 'PARCIAL',
+      devigedLegs: deviged,
+      legs: legs.length,
+    };
+  }
+
+  // Alternativa: a odd que a fonte publicou, com margem assumida por perna.
+  // É o que distingue uma múltipla de 3 pernas de uma de 8 pagando o mesmo.
+  if (slip.informedOddMilli !== null && slip.informedOddMilli > MILLI && total > 0) {
+    const implied = MILLI / slip.informedOddMilli;
+    const probability = implied / Math.pow(1 + ASSUMED_LEG_MARGIN_BPS / BPS, total);
+    return { probabilityBps: clamp(Math.round(probability * BPS)), basis: 'INFORMADA', devigedLegs: 0, legs: total };
+  }
+
+  return null;
+}
+
+function clamp(bps: number): number {
+  return Math.min(BPS, Math.max(0, bps));
+}
+
 /** Maior odd entre as casas para a seleção da perna (com a casa e o horário). */
 export function bestAvailableOddMilli(
   leg: { marketKey: string | null; selectionKey: string | null; line: number | null },

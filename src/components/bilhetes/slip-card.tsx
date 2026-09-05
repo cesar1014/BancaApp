@@ -31,7 +31,7 @@ export function SlipCard({ slip, timezone, canManage, showDate = false }: { slip
         <SlipStatusBadge slip={slip} />
       </header>
 
-      <div className="grid gap-x-6 gap-y-3 px-5 pt-4 sm:grid-cols-3">
+      <div className="grid gap-x-6 gap-y-3 px-5 pt-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="lbl">Odd informada</p>
           <p className="mt-1 text-num-lg font-extrabold tnum text-ink">{slip.informedOddMilli === null ? '—' : formatOddMilli(slip.informedOddMilli)}</p>
@@ -51,6 +51,28 @@ export function SlipCard({ slip, timezone, canManage, showDate = false }: { slip
             <>
               <p className="mt-1 text-num-lg font-extrabold tnum text-ink-faint">—</p>
               <p className="text-2xs text-ink-faint">{slip.verifiedLegs > 0 ? `conferência parcial (${unverified} perna${unverified === 1 ? '' : 's'} sem odd real)` : 'não foi possível conferir'}</p>
+            </>
+          )}
+        </div>
+        <div>
+          <p className="lbl">Chance estimada</p>
+          {slip.probability === null ? (
+            <>
+              <p className="mt-1 text-num-lg font-extrabold tnum text-ink-faint">—</p>
+              <p className="text-2xs text-ink-faint">sem odd para estimar</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-num-lg font-extrabold tnum text-ink">
+                {(slip.probability.probabilityBps / 100).toFixed(1).replace('.', ',')}%
+              </p>
+              <p className="text-2xs text-ink-faint">
+                {slip.probability.basis === 'CONFERIDA'
+                  ? `margem medida nas ${slip.probability.legs} pernas`
+                  : slip.probability.basis === 'PARCIAL'
+                    ? `${slip.probability.devigedLegs} de ${slip.probability.legs} pernas medidas, resto estimado`
+                    : `estimada da odd da fonte em ${slip.probability.legs} pernas`}
+              </p>
             </>
           )}
         </div>

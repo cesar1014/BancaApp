@@ -22,6 +22,7 @@ import {
   slipDedupeHash,
   slipMarginBps,
   slipMoney,
+  slipProbability,
 } from '../src/lib/bilhetes/domain/slip';
 import { matchLeg } from '../src/lib/bilhetes/matching';
 import { isAllowedByRobots, parseRobots } from '../src/lib/bilhetes/sources/fetch-page';
@@ -343,4 +344,106 @@ test('aposta10: 3 bilhetes (Conservador/Moderado/Ousado) da página datada, sem 
   assert.equal(conservador.legs[0]!.league, 'Ligue 1');
   assert.equal(parseMarket(conservador.legs[0]!.market, conservador.legs[0]!.selection, 'PSG', 'Monaco').market, 'BTTS');
   assert.equal(parseMarket(conservador.legs[1]!.market, conservador.legs[1]!.selection, 'Lyon', 'Auxerre').selection, 'HOME');
+});
+
+// ===========================================================================
+group('Bilhetes › chance estimada');
+// ===========================================================================
+/**
+ * Ordenar por menor odd não é ordenar por maior chance: a odd implícita já vem
+ * inflada pela margem, e numa múltipla a margem se acumula perna a perna.
+ */
+
+function probLeg(odd: number | null, real: number | null = null, margin: number | null = null) {
+  return { oddMilli: odd, realOddMilli: real, marginBps: margin };
+}
+
+test('desconta a margem de cada perna antes de multiplicar', () => {
+  // Duas pernas a 2,00 com 5% de margem cada.
+  // p = (0,5 / 1,05)^2 = 0,2268
+  const p = slipProbability({
+    informedOddMilli: 4_000,
+    legsCount: 2,
+    legs: [probLeg(2_000, 2_000, 500), probLeg(2_000, 2_000, 500)],
+  })!;
+  assert.equal(p.basis, 'CONFERIDA');
+  assert.equal(p.devigedLegs, 2);
+  assert.ok(Math.abs(p.probabilityBps - 2_268) <= 2, `veio ${p.probabilityBps}`);
+  // A odd implícita crua diria 25%: a margem acumulada come quase 2,3 pontos.
+  assert.ok(p.probabilityBps < 2_500);
+});
+
+test('mesma odd e mais pernas significa menos chance', () => {
+  // As duas múltiplas pagam 10,00. A de 8 pernas embute muito mais margem.
+  const tresPernas = slipProbability({ informedOddMilli: 10_000, legsCount: 3, legs: [] })!;
+  const oitoPernas = slipProbability({ informedOddMilli: 10_000, legsCount: 8, legs: [] })!;
+
+  assert.equal(tresPernas.basis, 'INFORMADA');
+  assert.ok(
+    tresPernas.probabilityBps > oitoPernas.probabilityBps,
+    `3 pernas (${tresPernas.probabilityBps}) deveria superar 8 pernas (${oitoPernas.probabilityBps})`,
+  );
+  // Ambas ficam abaixo dos 10% que a odd crua sugeriria.
+  assert.ok(tresPernas.probabilityBps < 1_000 && oitoPernas.probabilityBps < 1_000);
+});
+
+test('a odd real conferida tem prioridade sobre a publicada pela fonte', () => {
+  // A fonte diz 2,50, mas a odd real é 2,00: a chance segue a real.
+  const p = slipProbability({
+    informedOddMilli: 2_500,
+    legsCount: 1,
+    legs: [probLeg(2_500, 2_000, 0)],
+  })!;
+  assert.equal(p.basis, 'CONFERIDA');
+  assert.ok(Math.abs(p.probabilityBps - 5_000) <= 2, `veio ${p.probabilityBps}`);
+});
+
+test('perna sem margem medida usa a margem assumida e marca como PARCIAL', () => {
+  const p = slipProbability({
+    informedOddMilli: 4_000,
+    legsCount: 2,
+    legs: [probLeg(2_000, 2_000, 500), probLeg(2_000, 2_000, null)],
+  })!;
+  assert.equal(p.basis, 'PARCIAL');
+  assert.equal(p.devigedLegs, 1);
+  assert.equal(p.legs, 2);
+});
+
+test('sem odd real, a odd publicada por perna ainda serve', () => {
+  const p = slipProbability({
+    informedOddMilli: 4_000,
+    legsCount: 2,
+    legs: [probLeg(2_000), probLeg(2_000)],
+  })!;
+  assert.equal(p.basis, 'PARCIAL');
+  assert.equal(p.devigedLegs, 0);
+});
+
+test('sem preço nenhum não há chance a estimar', () => {
+  assert.equal(slipProbability({ informedOddMilli: null, legsCount: 3, legs: [] }), null);
+  assert.equal(
+    slipProbability({ informedOddMilli: null, legsCount: 2, legs: [probLeg(null), probLeg(null)] }),
+    null,
+  );
+});
+
+test('a chance nunca escapa de 0% a 100%', () => {
+  const quaseCerto = slipProbability({
+    informedOddMilli: 1_001,
+    legsCount: 1,
+    legs: [probLeg(1_001, 1_001, 0)],
+  })!;
+  assert.ok(quaseCerto.probabilityBps <= 10_000 && quaseCerto.probabilityBps >= 0);
+
+  const improvavel = slipProbability({ informedOddMilli: 500_000, legsCount: 10, legs: [] })!;
+  assert.ok(improvavel.probabilityBps >= 0);
+});
+
+test('ordenar por chance difere de ordenar por odd', () => {
+  // Bilhete A: 3 pernas a 12,00. Bilhete B: 8 pernas a 10,00.
+  // Por odd crescente, B viria primeiro. Por chance, A é o melhor.
+  const a = slipProbability({ informedOddMilli: 12_000, legsCount: 3, legs: [] })!;
+  const b = slipProbability({ informedOddMilli: 10_000, legsCount: 8, legs: [] })!;
+  assert.ok(12_000 > 10_000, 'A tem odd maior');
+  assert.ok(a.probabilityBps > b.probabilityBps, 'mas A tem mais chance de bater');
 });
