@@ -55,6 +55,8 @@ import { computePartnerShares, distributeByShares, suggestSharesFromCapital } fr
 import { buildMonthlyClosing } from '../src/lib/domain/closing';
 import { computeMemberStats } from '../src/lib/domain/stats';
 import { hashPassword, verifyPassword } from '../src/lib/auth/password';
+import { defaultUserPassword } from '../src/lib/auth/default-password';
+import { changePasswordSchema } from '../src/lib/validation/schemas';
 import { signSessionToken, verifySessionToken } from '../src/lib/auth/token';
 import type { BankrollSettings } from '../src/lib/domain/types';
 
@@ -742,8 +744,27 @@ test('senha é armazenada com scrypt e verificada corretamente', async () => {
   assert.notEqual(hash, await hashPassword('Banca@2026'));
 });
 
-test('senha curta é recusada', async () => {
-  await assert.rejects(() => hashPassword('1234'), /pelo menos 8 caracteres/);
+test('senha curta é recusada no hash; a senha escolhida ainda exige 8 no schema', async () => {
+  // Baixo nível: aceita a senha padrão do sistema (curta, temporária, trocada
+  // no primeiro acesso), mas recusa qualquer coisa menor que o mínimo.
+  await assert.rejects(() => hashPassword('12345'), /pelo menos 6 caracteres/);
+  assert.match(await hashPassword(defaultUserPassword()), /^scrypt\$/);
+
+  // Toda senha ESCOLHIDA por uma pessoa passa pelo Zod, que exige 8.
+  const short = changePasswordSchema.safeParse({
+    currentPassword: 'FZN2026',
+    newPassword: 'abc1234',
+    confirmPassword: 'abc1234',
+  });
+  assert.equal(short.success, false);
+  assert.match(JSON.stringify(short.error?.issues), /pelo menos 8 caracteres/);
+
+  const ok = changePasswordSchema.safeParse({
+    currentPassword: 'FZN2026',
+    newPassword: 'senhaNova1',
+    confirmPassword: 'senhaNova1',
+  });
+  assert.equal(ok.success, true);
 });
 
 test('token de sessão é assinado e validado', async () => {
