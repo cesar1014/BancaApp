@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { runAllJobs, runJob, type JobName } from '@/lib/services/sports/engine';
-import { workerSecret } from '@/lib/services/sports/runtime';
+import { getSportsRuntime, workerSecret } from '@/lib/services/sports/runtime';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +43,38 @@ async function handle(request: NextRequest): Promise<NextResponse> {
   }
 
   const job = (request.nextUrl.searchParams.get('job') ?? 'all').toLowerCase();
+
+  /**
+   * Diagnóstico de configuração.
+   *
+   *   GET /api/workers/sports?job=config
+   *
+   * Existe porque "modo simulação bloqueado" tem duas causas — o modo não é
+   * live, ou é live mas nenhuma chave foi configurada — e de fora não dava
+   * para saber qual. Diagnosticar isso por tentativa e erro em produção custa
+   * caro; a rota responde de uma vez.
+   *
+   * Devolve apenas se cada variável está PREENCHIDA, nunca o valor. Um
+   * endpoint de diagnóstico que vaza chave é uma porta dos fundos.
+   */
+  if (job === 'config') {
+    const runtime = getSportsRuntime();
+    const preenchida = (nome: string) => (process.env[nome] ?? '').trim().length > 0;
+    return NextResponse.json({
+      ok: true,
+      modo: process.env.DATA_PROVIDER_MODE ?? '(não definida)',
+      chaves: {
+        API_FOOTBALL_KEY: preenchida('API_FOOTBALL_KEY'),
+        THE_ODDS_API_KEY: preenchida('THE_ODDS_API_KEY'),
+        SPORTMONKS_API_KEY: preenchida('SPORTMONKS_API_KEY'),
+        THE_ODDS_API_REGIONS: process.env.THE_ODDS_API_REGIONS ?? '(não definida)',
+      },
+      provedoresAtivos: runtime.providers.keys,
+      caiuNoSimulador: runtime.providers.mode === 'mock' || runtime.providers.usingMockFallback,
+      refreshAoAbrirPagina: runtime.refreshOnView,
+    });
+  }
+
   try {
     if (job === 'all') {
       const reports = await runAllJobs();
