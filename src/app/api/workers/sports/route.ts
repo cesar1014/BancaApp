@@ -5,15 +5,18 @@ import { getSportsRuntime, workerSecret } from '@/lib/services/sports/runtime';
 export const dynamic = 'force-dynamic';
 
 /**
- * Sessenta segundos e o teto do plano gratuito da Vercel, e a rotina precisa
- * dele: buscar o calendario leva ~55s e o ao vivo ~40s. Sem esta linha vale o
- * padrao de 10 segundos e a funcao morre no meio, sem gravar quase nada.
+ * SEM maxDuration, de propósito.
  *
- * O trabalho e salvo de forma incremental, entao uma interrupcao nao perde o
- * que ja foi gravado: a chamada seguinte continua de onde parou.
+ * Declarar 60 s aqui derrubou o deploy: no plano gratuito da Vercel o teto de
+ * execução é 10 s, a menos que Fluid Compute esteja ligado, e um valor acima
+ * do permitido faz a plataforma recusar a publicação inteira — em silêncio,
+ * do ponto de vista de quem só olha o site, que continua servindo o build
+ * anterior.
+ *
+ * Vale o padrão da plataforma. As rotinas gravam de forma incremental, então
+ * uma interrupção não perde o que já foi escrito: a chamada seguinte continua
+ * de onde parou, e o agendador chama a cada cinco minutos.
  */
-export const maxDuration = 60;
-
 
 const JOBS: readonly JobName[] = ['fixtures', 'live', 'odds', 'settle', 'performance'];
 
