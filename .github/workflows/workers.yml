@@ -15,14 +15,11 @@
 #
 #   Settings → Secrets and variables → Actions → New repository secret
 #
-#     APP_URL         endereço de produção, sem barra no fim. Pegue em
-#                     Vercel → projeto → Settings → Domains. NÃO deduza pelo
-#                     nome do projeto: quando o nome já está tomado, a Vercel
-#                     entrega outro endereço, e o palpite cai no app de outra
-#                     pessoa — foi o que aconteceu na primeira versão deste
-#                     arquivo, que apontava para banca-app.vercel.app.
+#     WORKER_SECRET   o mesmo valor que está na Vercel. É o único obrigatório.
 #
-#     WORKER_SECRET   o mesmo valor que está na Vercel.
+#     APP_URL         opcional. O endereço de produção já está no bloco `env`
+#                     abaixo, verificado. Só crie este segredo para apontar a
+#                     outro ambiente sem mexer no código.
 #
 #     VERCEL_BYPASS   só se o projeto estiver com Deployment Protection ligado.
 #                     Vercel → Settings → Deployment Protection → Protection
@@ -57,7 +54,17 @@ on:
         options: [live, odds, fixtures, settle, performance, all]
 
 env:
-  APP_URL: ${{ secrets.APP_URL }}
+  # Endereço de produção, verificado: /api/health responde {"app":"banca"}.
+  #
+  # Fica no arquivo porque não é segredo e porque poupa uma configuração
+  # manual. O segredo APP_URL, se existir, tem prioridade — serve para apontar
+  # a outro ambiente sem mexer no código.
+  #
+  # Deduzir este endereço do nome do projeto foi um erro que já custou caro:
+  # `banca-app.vercel.app` pertence a outra pessoa. Por isso o passo seguinte
+  # confere a identidade do app antes de rodar qualquer rotina, em vez de
+  # confiar num 200.
+  APP_URL: ${{ secrets.APP_URL || 'https://banca-app-pied.vercel.app' }}
   WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
   VERCEL_BYPASS: ${{ secrets.VERCEL_BYPASS }}
 
@@ -66,7 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Traz .github/chamar.sh, usado pelos passos abaixo.
-      - uses: actions/checkout@v4
+      # v5 e não v4: o GitHub está removendo o Node 20 dos runners, e a v4
+      # já roda com aviso de depreciação.
+      - uses: actions/checkout@v5
 
       # Falha cedo e com mensagem clara: um cron que erra em silêncio é pior
       # que cron nenhum, porque parece estar funcionando.
