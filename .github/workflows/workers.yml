@@ -11,13 +11,24 @@
 #
 # GitHub Actions cobre isso de graça, e o repositório já está aqui.
 #
-# O QUE PRECISA SER CONFIGURADO (uma coisa só)
+# O QUE PRECISA SER CONFIGURADO
 #
 #   Settings → Secrets and variables → Actions → New repository secret
-#     Name:   WORKER_SECRET
-#     Secret: o mesmo valor que está na Vercel
 #
-# Se o endereço do app mudar, troque APP_URL logo abaixo.
+#     APP_URL         endereço de produção, sem barra no fim. Pegue em
+#                     Vercel → projeto → Settings → Domains. NÃO deduza pelo
+#                     nome do projeto: quando o nome já está tomado, a Vercel
+#                     entrega outro endereço, e o palpite cai no app de outra
+#                     pessoa — foi o que aconteceu na primeira versão deste
+#                     arquivo, que apontava para banca-app.vercel.app.
+#
+#     WORKER_SECRET   o mesmo valor que está na Vercel.
+#
+#     VERCEL_BYPASS   só se o projeto estiver com Deployment Protection ligado.
+#                     Vercel → Settings → Deployment Protection → Protection
+#                     Bypass for Automation → gere o segredo e cole aqui. Sem
+#                     ele, a proteção responde com o SSO da Vercel a qualquer
+#                     chamada automática e nenhuma rotina roda.
 #
 # LIMITE CONHECIDO
 #
@@ -30,9 +41,6 @@
 # gasta quota de API à toa: a chamada simplesmente não faz nada se for cedo.
 # =============================================================================
 name: Rotinas de produção
-
-env:
-  APP_URL: https://banca-app.vercel.app
 
 on:
   schedule:
@@ -48,56 +56,71 @@ on:
         type: choice
         options: [live, odds, fixtures, settle, performance, all]
 
+env:
+  APP_URL: ${{ secrets.APP_URL }}
+  WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
+  VERCEL_BYPASS: ${{ secrets.VERCEL_BYPASS }}
+
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - name: Conferir o segredo
+      # Traz .github/chamar.sh, usado pelos passos abaixo.
+      - uses: actions/checkout@v4
+
+      # Falha cedo e com mensagem clara: um cron que erra em silêncio é pior
+      # que cron nenhum, porque parece estar funcionando.
+      - name: Conferir configuração
         run: |
-          if [ -z "${{ secrets.WORKER_SECRET }}" ]; then
-            echo "::error::WORKER_SECRET não configurado. Vá em Settings → Secrets and variables → Actions e crie o segredo com o mesmo valor que está na Vercel."
+          faltou=0
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL não configurado. Pegue o endereço em Vercel → Settings → Domains e crie o segredo em Settings → Secrets and variables → Actions."
+            faltou=1
+          fi
+          if [ -z "$WORKER_SECRET" ]; then
+            echo "::error::WORKER_SECRET não configurado. Use o mesmo valor que está na Vercel."
+            faltou=1
+          fi
+          [ "$faltou" -eq 1 ] && exit 1
+          echo "Alvo: $APP_URL"
+
+      # Uma chamada barata que prova três coisas antes de gastar quota de API:
+      # o endereço existe, é o app certo, e a proteção da Vercel deixa passar.
+      - name: Verificar que o alvo responde e é o app certo
+        run: |
+          url="$APP_URL/api/health"
+          [ -n "$VERCEL_BYPASS" ] && url="$url?x-vercel-protection-bypass=$VERCEL_BYPASS"
+          corpo=$(curl -sS --max-time 30 -w '\n%{http_code}' "$url" || true)
+          codigo=$(echo "$corpo" | tail -1)
+          echo "$corpo" | head -c 400
+          echo ""
+          if [ "$codigo" != "200" ]; then
+            echo "::error::/api/health devolveu HTTP $codigo. Se for 401 ou 302 para vercel.com, o projeto está com Deployment Protection: configure VERCEL_BYPASS. Se for 307 para /login, o APP_URL aponta para outro aplicativo."
+            exit 1
+          fi
+          if ! echo "$corpo" | grep -q '"app":"banca"'; then
+            echo "::error::O endereço respondeu, mas não é este aplicativo — /api/health não trouxe a identificação esperada. Confira o APP_URL em Vercel → Settings → Domains."
             exit 1
           fi
 
       - name: Ao vivo e liquidação
         if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
         env:
-          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
           JOB: ${{ github.event.inputs.job || 'live' }}
         run: |
           for rotina in "$JOB" settle; do
-            echo "→ sports/$rotina"
-            curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
-              -H "Authorization: Bearer $WORKER_SECRET" \
-              "$APP_URL/api/workers/sports?job=$rotina" || echo "  falhou, segue"
+            bash .github/chamar.sh "sports?job=$rotina"
           done
 
       - name: Cotações e calls
         if: github.event.schedule == '*/30 * * * *'
-        env:
-          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
         run: |
-          echo "→ sports/odds"
-          curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
-            -H "Authorization: Bearer $WORKER_SECRET" \
-            "$APP_URL/api/workers/sports?job=odds" || echo "  falhou, segue"
-          echo "→ bilhetes/calls"
-          curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
-            -H "Authorization: Bearer $WORKER_SECRET" \
-            "$APP_URL/api/workers/bilhetes?job=calls" || echo "  falhou, segue"
+          bash .github/chamar.sh "sports?job=odds"
+          bash .github/chamar.sh "bilhetes?job=calls"
 
       - name: Calendário, desempenho e bilhetes
         if: github.event.schedule == '10 3,11,19 * * *'
-        env:
-          WORKER_SECRET: ${{ secrets.WORKER_SECRET }}
         run: |
-          for rotina in fixtures performance; do
-            echo "→ sports/$rotina"
-            curl -sS --max-time 120 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
-              -H "Authorization: Bearer $WORKER_SECRET" \
-              "$APP_URL/api/workers/sports?job=$rotina" || echo "  falhou, segue"
-          done
-          echo "→ bilhetes/all"
-          curl -sS --max-time 180 -w '\n  HTTP %{http_code} em %{time_total}s\n' \
-            -H "Authorization: Bearer $WORKER_SECRET" \
-            "$APP_URL/api/workers/bilhetes?job=all" || echo "  falhou, segue"
+          bash .github/chamar.sh "sports?job=fixtures"
+          bash .github/chamar.sh "sports?job=performance"
+          bash .github/chamar.sh "bilhetes?job=all"
