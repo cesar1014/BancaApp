@@ -155,6 +155,29 @@ export async function listRecentCalls(limit = 120): Promise<StoredCall[]> {
   return rows.map(mapCall);
 }
 
+/**
+ * Todas as calls de todas as fontes, para o placar da aba Fontes.
+ *
+ * Uma consulta só: a alternativa seria uma por canal, e a tela de fontes já
+ * faz várias outras.
+ */
+export async function listAllCallsForScore(): Promise<
+  { sourceSlug: string; result: CallResult | null; oddMilli: number | null; unitsCentis: number | null }[]
+> {
+  const rows = await query<{
+    source_slug: string;
+    result: CallResult | null;
+    odd_milli: number | null;
+    units_centis: number | null;
+  }>(`SELECT source_slug, result, odd_milli, units_centis FROM tip_calls`);
+  return rows.map((row) => ({
+    sourceSlug: row.source_slug,
+    result: row.result,
+    oddMilli: row.odd_milli,
+    unitsCentis: row.units_centis,
+  }));
+}
+
 /** Todas as calls de uma fonte, para o placar — sem o texto bruto. */
 export async function listCallsForScore(
   sourceSlug: string,

@@ -17,6 +17,8 @@ import {
   slipMarginBps,
   slipMoney,
 } from '@/lib/bilhetes/domain/slip';
+import { scoreCalls, type CallScore } from '@/lib/bilhetes/domain/calls';
+import { listAllCallsForScore } from '@/lib/repos/calls';
 import type { RawSlip, SlipLeg, SourceCountry } from '@/lib/bilhetes/domain/types';
 import { matchLeg, type FixtureCandidate } from '@/lib/bilhetes/matching';
 import {
@@ -308,15 +310,42 @@ export interface SourceScore {
   pending: number;
   /** Amostra pequena: abaixo de 30 bilhetes resolvidos o ROI está no ruído. */
   smallSample: boolean;
+  /**
+   * Bilhetes resolvidos que ficaram FORA da conta por terem alguma perna que
+   * não foi possível apurar. Contá-los enviesaria o placar para baixo, e
+   * escondê-los sem dizer quantos são enganaria de outro jeito.
+   */
+  excludedIncomplete: number;
+  /** Calls, quando a fonte é um canal de Telegram. */
+  calls: CallScore | null;
   lastRun: { at: string; status: string; found: number; created: number; error: string | null } | null;
 }
 
 export async function loadSourceScores(): Promise<SourceScore[]> {
-  const [sources, rows, runs] = await Promise.all([listSources(), listSlipsForPerformance(), lastRuns()]);
+  const [sources, rows, runs, callRows] = await Promise.all([
+    listSources(),
+    listSlipsForPerformance(),
+    lastRuns(),
+    listAllCallsForScore(),
+  ]);
   const runBySlug = new Map(runs.map((r) => [r.source_slug, r]));
+
+  const callsBySlug = new Map<string, typeof callRows>();
+  for (const call of callRows) {
+    const lista = callsBySlug.get(call.sourceSlug);
+    if (lista) lista.push(call);
+    else callsBySlug.set(call.sourceSlug, [call]);
+  }
+
   return sources
     .map((source) => {
-      const mine = rows.filter((r) => r.source_slug === source.slug);
+      const todos = rows.filter((r) => r.source_slug === source.slug);
+      // Só bilhete com todas as pernas apuradas entra na conta. Ver a nota em
+      // listSlipsForPerformance: incluir os incompletos enviesa para o RED.
+      const mine = todos.filter((r) => r.todas_pernas_apuradas);
+      const excludedIncomplete = todos.filter(
+        (r) => !r.todas_pernas_apuradas && r.status === 'SETTLED',
+      ).length;
       const metrics = computePerformance(
         mine.map((r) => ({
           market: 'MATCH_WINNER' as const,
@@ -330,6 +359,12 @@ export async function loadSourceScores(): Promise<SourceScore[]> {
         })),
       );
       const run = runBySlug.get(source.slug);
+      // Canal de Telegram não publica bilhete, publica call. Sem isto ele
+      // aparecia zerado e "nunca coletada" nesta tela, contradizendo a aba
+      // Calls, que mostrava o mesmo canal com oito palpites e cinco greens.
+      const minhasCalls = callsBySlug.get(source.slug);
+      const calls = minhasCalls ? scoreCalls(minhasCalls) : null;
+
       return {
         slug: source.slug,
         name: source.name,
@@ -337,13 +372,19 @@ export async function loadSourceScores(): Promise<SourceScore[]> {
         country: source.country,
         isActive: source.is_active,
         metrics,
-        open: mine.filter((r) => r.status === 'OPEN').length,
-        pending: mine.filter((r) => r.status === 'PENDING').length,
+        open: todos.filter((r) => r.status === 'OPEN').length,
+        pending: todos.filter((r) => r.status === 'PENDING').length,
         smallSample: metrics.settled < 30,
+        excludedIncomplete,
+        calls,
         lastRun: run ? { at: (run.finished_at ?? run.started_at).toISOString(), status: run.status, found: run.slips_found, created: run.slips_new, error: run.error } : null,
       };
     })
-    .sort((a, b) => (b.metrics.roiBps ?? -Infinity) - (a.metrics.roiBps ?? -Infinity));
+    .sort((a, b) => {
+      const roiA = a.metrics.roiBps ?? a.calls?.roiBps ?? -Infinity;
+      const roiB = b.metrics.roiBps ?? b.calls?.roiBps ?? -Infinity;
+      return roiB - roiA;
+    });
 }
 
 // ---------------------------------------------------------------------------

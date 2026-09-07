@@ -7,6 +7,69 @@ import { formatOddMilli } from '@/components/tips/format';
 import { formatDateTimeBR } from '@/lib/datetime';
 import { SourceToggle } from './collect-button';
 
+/**
+ * Números que a linha exibe.
+ *
+ * Fonte de site publica bilhete e a stake é em reais; canal de Telegram
+ * publica call e a stake é em unidades. As duas coisas convivem na mesma
+ * tabela, e por isso o lucro é formatado de forma diferente em cada caso — um
+ * canal aparecendo com "R$ 0,00" era um dos sintomas que motivaram isto.
+ *
+ * Sem números, tudo vira travessão. Melhor que zero, que se lê como derrota.
+ */
+interface Linha {
+  resolvidos: number;
+  greens: number;
+  reds: number;
+  winRateBps: number | null;
+  avgOddMilli: number | null;
+  roiBps: number | null;
+  yieldBps: number | null;
+  lucro: { tipo: 'reais'; cents: number } | { tipo: 'unidades'; centis: number };
+  rotulo: string;
+}
+
+function linhaDe(source: SourceScore): Linha {
+  if (source.calls) {
+    const c = source.calls;
+    return {
+      resolvidos: c.settled,
+      greens: c.greens,
+      reds: c.reds,
+      winRateBps: c.hitRateBps,
+      avgOddMilli: c.averageOddMilli,
+      roiBps: c.roiBps,
+      // Para uma call de uma perna, yield e ROI são a mesma coisa.
+      yieldBps: c.roiBps,
+      lucro: { tipo: 'unidades', centis: c.profitCentis },
+      rotulo: 'calls',
+    };
+  }
+  const m = source.metrics;
+  return {
+    resolvidos: m.settled,
+    greens: m.greens,
+    reds: m.reds,
+    winRateBps: m.winRateBps,
+    avgOddMilli: m.avgOddMilli,
+    roiBps: m.roiBps,
+    yieldBps: m.yieldBps,
+    lucro: { tipo: 'reais', cents: m.profitCents },
+    rotulo: 'bilhetes',
+  };
+}
+
+function Lucro({ valor }: { valor: Linha['lucro'] }) {
+  if (valor.tipo === 'reais') return <Result cents={valor.cents} />;
+  const u = valor.centis / 100;
+  return (
+    <span className={cn('tnum font-bold', u > 0 ? 'text-positive' : u < 0 ? 'text-negative' : 'text-ink-muted')}>
+      {u > 0 ? '+' : ''}
+      {u.toFixed(2)}u
+    </span>
+  );
+}
+
 /** O placar: ROI e yield com o mesmo destaque do win rate. */
 export function SourcesTable({ sources, timezone, canManage }: { sources: SourceScore[]; timezone: string; canManage: boolean }) {
   return (
@@ -18,17 +81,20 @@ export function SourcesTable({ sources, timezone, canManage }: { sources: Source
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[15px] font-bold text-ink">{source.name}</p>
-                <p className="text-xs text-ink-faint">{source.country === 'BR' ? 'Brasil' : 'Internacional'} · {source.metrics.settled} resolvidos</p>
+                <p className="text-xs text-ink-faint">
+                  {source.country === 'BR' ? 'Brasil' : 'Internacional'} · {linhaDe(source).resolvidos} de{' '}
+                  {linhaDe(source).rotulo} resolvidos
+                </p>
               </div>
               <ActiveBadge active={source.isActive} />
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-3">
-              <Cell label="Win rate" value={<Percent bps={source.metrics.winRateBps} fractionDigits={1} />} />
-              <Cell label="ROI" value={<ResultPercent bps={source.metrics.roiBps} fractionDigits={1} />} strong />
-              <Cell label="Yield" value={<ResultPercent bps={source.metrics.yieldBps} fractionDigits={1} />} strong />
-              <Cell label="Green / Red" value={`${source.metrics.greens} / ${source.metrics.reds}`} />
-              <Cell label="Odd média" value={source.metrics.avgOddMilli === null ? '—' : formatOddMilli(source.metrics.avgOddMilli)} />
-              <Cell label="Lucro" value={<Result cents={source.metrics.profitCents} />} />
+              <Cell label="Win rate" value={<Percent bps={linhaDe(source).winRateBps} fractionDigits={1} />} />
+              <Cell label="ROI" value={<ResultPercent bps={linhaDe(source).roiBps} fractionDigits={1} />} strong />
+              <Cell label="Yield" value={<ResultPercent bps={linhaDe(source).yieldBps} fractionDigits={1} />} strong />
+              <Cell label="Green / Red" value={`${linhaDe(source).greens} / ${linhaDe(source).reds}`} />
+              <Cell label="Odd média" value={linhaDe(source).avgOddMilli === null ? '—' : formatOddMilli(linhaDe(source).avgOddMilli!)} />
+              <Cell label="Lucro" value={<Lucro valor={linhaDe(source).lucro} />} />
             </dl>
             <SampleNote source={source} />
             <RunNote source={source} timezone={timezone} />
@@ -67,14 +133,14 @@ export function SourcesTable({ sources, timezone, canManage }: { sources: Source
                     {source.pending > 0 ? ` · ${source.pending} p/ conferir` : ''}
                   </p>
                 </td>
-                <td className="px-3 py-3 text-right tnum text-ink-muted">{source.metrics.settled}</td>
-                <td className="px-3 py-3 text-right tnum text-positive">{source.metrics.greens}</td>
-                <td className="px-3 py-3 text-right tnum text-negative">{source.metrics.reds}</td>
-                <td className="px-3 py-3 text-right"><Percent bps={source.metrics.winRateBps} fractionDigits={1} /></td>
-                <td className="px-3 py-3 text-right tnum text-ink-muted">{source.metrics.avgOddMilli === null ? '—' : formatOddMilli(source.metrics.avgOddMilli)}</td>
-                <td className="px-3 py-3 text-right text-[15px]"><ResultPercent bps={source.metrics.roiBps} fractionDigits={1} /></td>
-                <td className="px-3 py-3 text-right text-[15px]"><ResultPercent bps={source.metrics.yieldBps} fractionDigits={1} /></td>
-                <td className="px-3 py-3 text-right"><Result cents={source.metrics.profitCents} /></td>
+                <td className="px-3 py-3 text-right tnum text-ink-muted">{linhaDe(source).resolvidos}</td>
+                <td className="px-3 py-3 text-right tnum text-positive">{linhaDe(source).greens}</td>
+                <td className="px-3 py-3 text-right tnum text-negative">{linhaDe(source).reds}</td>
+                <td className="px-3 py-3 text-right"><Percent bps={linhaDe(source).winRateBps} fractionDigits={1} /></td>
+                <td className="px-3 py-3 text-right tnum text-ink-muted">{linhaDe(source).avgOddMilli === null ? '—' : formatOddMilli(linhaDe(source).avgOddMilli!)}</td>
+                <td className="px-3 py-3 text-right text-[15px]"><ResultPercent bps={linhaDe(source).roiBps} fractionDigits={1} /></td>
+                <td className="px-3 py-3 text-right text-[15px]"><ResultPercent bps={linhaDe(source).yieldBps} fractionDigits={1} /></td>
+                <td className="px-3 py-3 text-right"><Lucro valor={linhaDe(source).lucro} /></td>
                 <td className="px-3 py-3 text-xs text-ink-muted"><RunNote source={source} timezone={timezone} inline /></td>
                 {canManage ? (
                   <td className="px-5 py-3 text-right">
@@ -107,15 +173,45 @@ function ActiveBadge({ active }: { active: boolean }) {
 }
 
 function SampleNote({ source }: { source: SourceScore }) {
-  if (!source.smallSample) return null;
+  const notas: string[] = [];
+  if (source.smallSample && source.metrics.settled > 0) {
+    notas.push(`Amostra pequena (${source.metrics.settled} resolvidos): com menos de 30, o ROI está dentro do ruído.`);
+  }
+  /**
+   * Bilhete com perna que não pôde ser apurada fica de fora da conta. Dizer
+   * quantos são não é detalhe: sem isso, uma fonte apareceria com dois
+   * resultados quando publicou quarenta, e o número pareceria arbitrário.
+   */
+  if (source.excludedIncomplete > 0) {
+    notas.push(
+      `${source.excludedIncomplete} bilhete(s) ficaram fora da conta por terem perna que o sistema não conseguiu apurar — jogo fora das competições acompanhadas ou mercado não reconhecido.`,
+    );
+  }
+  if (notas.length === 0) return null;
   return (
-    <p className="mt-3 flex items-center gap-1.5 text-xs text-warning">
-      <IconAlert /> Amostra pequena ({source.metrics.settled} resolvidos): com menos de 30, o ROI está dentro do ruído.
-    </p>
+    <div className="mt-3 space-y-1">
+      {notas.map((nota) => (
+        <p key={nota} className="flex items-start gap-1.5 text-xs text-warning">
+          <IconAlert /> {nota}
+        </p>
+      ))}
+    </div>
   );
 }
 
 function RunNote({ source, timezone, inline }: { source: SourceScore; timezone: string; inline?: boolean }) {
+  // Canal de Telegram publica call, não bilhete: a coleta dele não passa por
+  // tip_source_runs, então "nunca coletada" seria falso.
+  if (source.calls) {
+    const c = source.calls;
+    return (
+      <span className={cn('inline-flex items-center gap-1 text-ink-muted', !inline && 'mt-2 text-xs')}>
+        <IconInfo />
+        {c.calls} call{c.calls === 1 ? '' : 's'} · {c.settled} resolvida{c.settled === 1 ? '' : 's'}
+        {c.roiBps === null ? '' : ` · ROI ${c.roiBps > 0 ? '+' : ''}${(c.roiBps / 100).toFixed(1)}%`}
+      </span>
+    );
+  }
   const run = source.lastRun;
   if (!run) return <span className={cn('text-ink-faint', !inline && 'mt-2 block text-xs')}>nunca coletada</span>;
   const tone = run.status === 'ERROR' ? 'text-negative' : run.status === 'EMPTY' ? 'text-warning' : 'text-ink-muted';

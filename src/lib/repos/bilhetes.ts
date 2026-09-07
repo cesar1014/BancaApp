@@ -286,9 +286,38 @@ export interface SlipPerformanceRow {
   status: SlipStatus;
 }
 
-export async function listSlipsForPerformance(): Promise<SlipPerformanceRow[]> {
-  return query<SlipPerformanceRow>(
-    'SELECT source_slug, informed_odd_milli, effective_odd_milli, result, stake_cents, profit_cents, status FROM tip_slips',
+/**
+ * Bilhetes para o placar, com a marca de APURAÇÃO COMPLETA.
+ *
+ * `todas_pernas_apuradas` é o que separa um resultado confiável de um viés.
+ * Um bilhete vira RED assim que UMA perna perde, mas só vira GREEN quando
+ * TODAS resolvem. Quando parte das pernas não pode ser apurada — jogo que não
+ * casou com o calendário, mercado que o parser não entendeu —, os RED
+ * continuam fechando e os GREEN ficam presos.
+ *
+ * Medido no banco: 29 bilhetes tinham perna vencedora, nenhuma perdedora, e
+ * estavam travados esperando perna que nunca resolveria; enquanto isso 46
+ * fechavam como RED. O placar exibia −93,9% de yield como se fosse desempenho
+ * da fonte, quando era, em boa parte, limitação nossa de casamento.
+ *
+ * Quem consome esta lista deve considerar só as linhas completas.
+ */
+export type SlipPerformanceCompleteRow = SlipPerformanceRow & {
+  todas_pernas_apuradas: boolean;
+  legs_total: number;
+  legs_sem_resultado: number;
+};
+
+export async function listSlipsForPerformance(): Promise<SlipPerformanceCompleteRow[]> {
+  return query<SlipPerformanceCompleteRow>(
+    `SELECT t.source_slug, t.informed_odd_milli, t.effective_odd_milli, t.result,
+            t.stake_cents, t.profit_cents, t.status,
+            count(g.id)::int AS legs_total,
+            count(*) FILTER (WHERE g.result IS NULL)::int AS legs_sem_resultado,
+            (count(*) FILTER (WHERE g.result IS NULL) = 0) AS todas_pernas_apuradas
+     FROM tip_slips t
+     LEFT JOIN tip_slip_legs g ON g.slip_id = t.id
+     GROUP BY t.id`,
   );
 }
 

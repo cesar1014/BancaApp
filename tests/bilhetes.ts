@@ -722,3 +722,90 @@ test('a ordenação põe a maior nota primeiro', () => {
   assert.equal(entradas[0]!.fixtureId, 'jogoForte');
   assert.ok(entradas[0]!.score > entradas[entradas.length - 1]!.score);
 });
+
+// ===========================================================================
+group('Bilhetes › viés da apuração incompleta');
+// ===========================================================================
+/**
+ * Um bilhete fecha como RED assim que UMA perna perde, mas só fecha como
+ * GREEN quando TODAS resolvem. Quando parte das pernas não pode ser apurada —
+ * jogo fora das competições acompanhadas, mercado que o leitor não reconhece —
+ * os RED continuam fechando e os GREEN ficam presos.
+ *
+ * Medido no banco de produção: 46 bilhetes fecharam RED, 1 fechou GREEN, e 29
+ * tinham perna vencedora, nenhuma perdedora, e estavam travados esperando uma
+ * perna que nunca resolveria. O placar exibia −93,9% como se fosse desempenho
+ * da fonte.
+ *
+ * Estes testes fixam as duas metades da regra: a liquidação continua certa, e
+ * o que entra na estatística é só o que foi apurado por inteiro.
+ */
+
+test('uma perna perdida decide o bilhete mesmo com pernas por apurar', () => {
+  const parcial = settleSlip(
+    [
+      { result: 'GREEN', oddMilli: 1_800, realOddMilli: null, unresolvable: false },
+      { result: 'RED', oddMilli: 2_000, realOddMilli: null, unresolvable: false },
+      { result: null, oddMilli: 1_500, realOddMilli: null, unresolvable: true },
+    ],
+    5_400,
+  );
+  assert.equal(parcial.status, 'SETTLED');
+  assert.equal(parcial.result, 'RED', 'uma perna perdida derruba o bilhete inteiro');
+});
+
+test('sem perna perdida, perna por apurar impede o green', () => {
+  const travado = settleSlip(
+    [
+      { result: 'GREEN', oddMilli: 1_800, realOddMilli: null, unresolvable: false },
+      { result: null, oddMilli: 1_500, realOddMilli: null, unresolvable: true },
+    ],
+    2_700,
+  );
+  assert.notEqual(travado.result, 'GREEN', 'não dá para afirmar green sem apurar todas');
+  assert.notEqual(travado.status, 'SETTLED');
+});
+
+test('a assimetria é real: é isto que torna a amostra incompleta enviesada', () => {
+  // Mesmo bilhete, mesma perna pendente. Só muda o resultado da segunda perna.
+  const pernaPendente = { result: null, oddMilli: 1_500, realOddMilli: null, unresolvable: true } as const;
+
+  const comRed = settleSlip(
+    [{ result: 'RED', oddMilli: 1_800, realOddMilli: null, unresolvable: false }, pernaPendente],
+    2_700,
+  );
+  const comGreen = settleSlip(
+    [{ result: 'GREEN', oddMilli: 1_800, realOddMilli: null, unresolvable: false }, pernaPendente],
+    2_700,
+  );
+
+  assert.equal(comRed.status, 'SETTLED', 'o lado perdedor fecha');
+  assert.notEqual(comGreen.status, 'SETTLED', 'o lado vencedor não fecha');
+  // Contar os dois na mesma estatística registraria a derrota e perderia a
+  // vitória. Por isso o placar só considera bilhete apurado por inteiro.
+});
+
+test('bilhete com todas as pernas apuradas fecha green e entra na conta', () => {
+  const completo = settleSlip(
+    [
+      { result: 'GREEN', oddMilli: 1_800, realOddMilli: null, unresolvable: false },
+      { result: 'GREEN', oddMilli: 1_500, realOddMilli: null, unresolvable: false },
+    ],
+    2_700,
+  );
+  assert.equal(completo.status, 'SETTLED');
+  assert.equal(completo.result, 'GREEN');
+});
+
+test('perna anulada sai da conta e mantém o bilhete vivo', () => {
+  const comPush = settleSlip(
+    [
+      { result: 'GREEN', oddMilli: 2_000, realOddMilli: null, unresolvable: false },
+      { result: 'PUSH', oddMilli: 1_500, realOddMilli: null, unresolvable: false },
+    ],
+    3_000,
+  );
+  assert.equal(comPush.status, 'SETTLED');
+  assert.equal(comPush.result, 'GREEN');
+  assert.equal(comPush.effectiveOddMilli, 2_000, 'a perna anulada sai da odd efetiva');
+});
