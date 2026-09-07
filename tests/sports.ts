@@ -40,7 +40,7 @@ import { ProviderQuotaManager, DEFAULT_QUOTA_LIMITS } from '../src/lib/sports/in
 import { CircuitBreaker } from '../src/lib/sports/infra/http';
 import { MockProvider } from '../src/lib/sports/providers/mock';
 import { ApiFootballProvider } from '../src/lib/sports/providers/api-football';
-import { mapOddsApiEvent } from '../src/lib/sports/providers/odds-api';
+import { mapOddsApiEvent, OddsApiProvider } from '../src/lib/sports/providers/odds-api';
 import { createProviders } from '../src/lib/sports/providers';
 import { InMemoryMappingStore, SportsDataLayer, mergeStatistics } from '../src/lib/sports/data-layer';
 import { findLeague } from '../src/lib/sports/config/leagues';
@@ -1008,4 +1008,149 @@ test('o teto olha o consenso, não a melhor casa: garimpar preço continua valen
   assert.equal(over05.oddMilli, 1_400, 'a dica tem de apontar a melhor casa');
   assert.equal(over05.bookmaker, 'CasaGenerosa');
   assert.ok(over05.valueBps !== null && over05.valueBps > 0);
+});
+
+// ===========================================================================
+group('Dicas › The Odds API: consumo de créditos');
+// ===========================================================================
+/**
+ * Regressão de um defeito que esgotou a quota do mês em pouco mais de um dia:
+ * o provedor usava o endpoint EM LOTE filtrando por um único jogo, pagando o
+ * preço do campeonato inteiro e levando uma partida só.
+ */
+
+/** Partida pronta para o casamento por id do provedor de odds. */
+function oddsFixture(id: string, casa: string, fora: string): NormalizedFixture {
+  return fixture({
+    id,
+    status: 'SCHEDULED',
+    minute: null,
+    statistics: null,
+    providerIds: { 'odds-api': id },
+    homeTeam: { key: casa.toLowerCase(), name: casa, shortName: null, country: 'Brasil', aliases: [], providerIds: {} },
+    awayTeam: { key: fora.toLowerCase(), name: fora, shortName: null, country: 'Brasil', aliases: [], providerIds: {} },
+  });
+}
+
+/** Resposta do endpoint em lote: três jogos do mesmo campeonato. */
+const LOTE = [
+  {
+    id: 'jogo-1',
+    home_team: 'Palmeiras',
+    away_team: 'Flamengo',
+    bookmakers: [
+      {
+        key: 'bet365',
+        title: 'Bet365',
+        last_update: '2026-09-06T12:00:00Z',
+        markets: [
+          {
+            key: 'h2h',
+            last_update: '2026-09-06T12:00:00Z',
+            outcomes: [
+              { name: 'Palmeiras', price: 2.1 },
+              { name: 'Flamengo', price: 3.2 },
+              { name: 'Draw', price: 3.4 },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'jogo-2',
+    home_team: 'Santos',
+    away_team: 'Corinthians',
+    bookmakers: [
+      {
+        key: 'bet365',
+        title: 'Bet365',
+        last_update: '2026-09-06T12:00:00Z',
+        markets: [
+          {
+            key: 'h2h',
+            last_update: '2026-09-06T12:00:00Z',
+            outcomes: [
+              { name: 'Santos', price: 2.6 },
+              { name: 'Corinthians', price: 2.8 },
+              { name: 'Draw', price: 3.1 },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+];
+
+function oddsProvider(registrar: string[]) {
+  const fetchJson = (async (request: { url: string }) => {
+    registrar.push(request.url);
+    return { status: 200, headers: new Headers({ 'x-requests-last': '2', 'x-requests-remaining': '400' }), body: LOTE };
+  }) as unknown as FetchJson;
+
+  return new OddsApiProvider('chave-de-teste', {
+    fetchJson,
+    quota: new ProviderQuotaManager(DEFAULT_QUOTA_LIMITS, null, () => NOW.getTime()),
+    cache: new SportsCache(),
+    now: () => NOW,
+  });
+}
+
+test('uma chamada cobre o campeonato inteiro, não uma por jogo', async () => {
+  const chamadas: string[] = [];
+  const provider = oddsProvider(chamadas);
+
+  for (const [id, casa, fora] of [
+    ['jogo-1', 'Palmeiras', 'Flamengo'],
+    ['jogo-2', 'Santos', 'Corinthians'],
+    ['jogo-3', 'Vasco', 'Botafogo'],
+  ] as const) {
+    await provider.getOdds({ fixture: oddsFixture(id, casa, fora), providerId: id, priority: 'NORMAL' });
+  }
+
+  assert.equal(chamadas.length, 1, `esperava 1 chamada para 3 partidas, houve ${chamadas.length}`);
+  assert.ok(!chamadas[0]!.includes('eventIds'), 'o lote não pode ser filtrado por um jogo só');
+  assert.ok(chamadas[0]!.includes('/odds?'), 'deve usar o endpoint do campeonato');
+});
+
+test('cada partida recebe as cotações que são dela', async () => {
+  const provider = oddsProvider([]);
+  const mandante = (quotes: readonly OddsQuote[]) =>
+    quotes.find((q) => q.market === 'MATCH_WINNER' && q.selection === 'HOME')?.oddMilli;
+
+  const um = await provider.getOdds({ fixture: oddsFixture('jogo-1', 'Palmeiras', 'Flamengo'), providerId: 'jogo-1', priority: 'NORMAL' });
+  const dois = await provider.getOdds({ fixture: oddsFixture('jogo-2', 'Santos', 'Corinthians'), providerId: 'jogo-2', priority: 'NORMAL' });
+
+  assert.equal(mandante(um), 2_100, 'jogo-1 deve receber a odd do jogo-1');
+  assert.equal(mandante(dois), 2_600, 'jogo-2 deve receber a odd do jogo-2');
+});
+
+test('partida ausente da resposta devolve vazio, nunca a cotação de outro jogo', async () => {
+  const provider = oddsProvider([]);
+  const ausente = await provider.getOdds({
+    fixture: oddsFixture('jogo-99', 'Bahia', 'Fortaleza'),
+    providerId: 'jogo-99',
+    priority: 'NORMAL',
+  });
+  assert.deepEqual(ausente, []);
+});
+
+test('o custo cobrado é o do lote, uma vez, e não por partida', async () => {
+  const quota = new ProviderQuotaManager(DEFAULT_QUOTA_LIMITS, null, () => NOW.getTime());
+  const fetchJson = (async () => ({
+    status: 200,
+    headers: new Headers({ 'x-requests-last': '2', 'x-requests-remaining': '400' }),
+    body: LOTE,
+  })) as unknown as FetchJson;
+  const provider = new OddsApiProvider('chave-de-teste', { fetchJson, quota, cache: new SportsCache(), now: () => NOW });
+
+  for (const [id, casa, fora] of [
+    ['jogo-1', 'Palmeiras', 'Flamengo'],
+    ['jogo-2', 'Santos', 'Corinthians'],
+  ] as const) {
+    await provider.getOdds({ fixture: oddsFixture(id, casa, fora), providerId: id, priority: 'NORMAL' });
+  }
+
+  const [estado] = await quota.snapshot(['odds-api']);
+  assert.equal(estado!.requestsUsed, 2, 'duas partidas do mesmo campeonato custam um lote (2 créditos)');
 });

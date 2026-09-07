@@ -124,8 +124,39 @@ export class SportsDataLayer {
     return this.deps.providers;
   }
 
+  /**
+   * Modo de economia GLOBAL: o mais apertado entre todos os provedores.
+   *
+   * Serve para a interface — o usuário precisa saber que alguma coisa está
+   * racionada. NÃO deve dimensionar rotina nenhuma: cada rotina gasta a quota
+   * de um provedor específico, e é a quota DELE que deve limitá-la.
+   */
   async economyMode(): Promise<EconomyMode> {
     return this.deps.quota.globalEconomyMode(this.deps.providers.keys);
+  }
+
+  /**
+   * Modo que rege o calendário e o acompanhamento ao vivo, ou seja, a quota do
+   * provedor primário.
+   *
+   * Separar isto do global corrige um defeito que apareceu em produção: a The
+   * Odds API chegou a 458 de 500 créditos e entrou em CRÍTICO, e como o modo
+   * era o pior entre todos, o funil inteiro encolheu junto — o placar ao vivo
+   * parou de atualizar e ficou uma hora atrasado, mostrando um jogo aos 24'
+   * que já tinha acabado. A API-Football, que é quem alimenta o ao vivo, tinha
+   * 96 das 100 requisições livres naquele momento.
+   *
+   * Provedor sem quota deve parar de ser chamado — cada um já verifica a sua
+   * antes de sair —, e não arrastar os outros junto.
+   */
+  async primaryEconomyMode(): Promise<EconomyMode> {
+    return this.deps.quota.economyMode(this.deps.providers.primary.key);
+  }
+
+  /** Modo que rege a busca de cotações: a quota dos provedores de odds. */
+  async oddsEconomyMode(): Promise<EconomyMode> {
+    const keys = this.deps.providers.odds.map((provider) => provider.key);
+    return keys.length === 0 ? 'NORMAL' : this.deps.quota.globalEconomyMode(keys);
   }
 
   async quotaSnapshot(): Promise<ProviderQuotaState[]> {

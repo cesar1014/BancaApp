@@ -210,8 +210,10 @@ export async function runFixturesJob(runtime: SportsRuntime = getSportsRuntime()
     }
 
     // Funil inicial (interesse) para os jogos de hoje e amanhã.
+    // O tamanho do funil segue a quota do provedor primário, que é quem paga
+    // por estas chamadas — não a do provedor de odds.
     const stored = await listFixturesBetween(addDays(now, -0.5), addDays(now, daysAhead + 1));
-    const mode = await runtime.dataLayer.economyMode();
+    const mode = await runtime.dataLayer.primaryEconomyMode();
     const assignments = assignTiers(stored.map(toFunnelCandidate), limitsForMode(mode), now);
     await updateFunnel(assignments);
 
@@ -231,7 +233,9 @@ export async function runLiveJob(runtime: SportsRuntime = getSportsRuntime()): P
   return withJob('live', JOB_COOLDOWN_SECONDS.live, async () => {
     const now = runtime.now();
     const strategies = await loadStrategies();
-    const mode = await runtime.dataLayer.economyMode();
+    // Quota do primário: é ela que esta rotina consome. Cotação esgotada não
+    // pode parar o acompanhamento do placar.
+    const mode = await runtime.dataLayer.primaryEconomyMode();
 
     // 1) Lista do que está rolando (1 chamada) + o que está prestes a começar.
     const live = await runtime.dataLayer.getLiveFixtures();
@@ -383,7 +387,9 @@ export async function runOddsJob(runtime: SportsRuntime = getSportsRuntime()): P
   return withJob('odds', JOB_COOLDOWN_SECONDS.odds, async () => {
     const now = runtime.now();
     const strategies = await loadStrategies();
-    const mode = await runtime.dataLayer.economyMode();
+    // Esta rotina é a que gasta créditos de cotação, então é a quota dos
+    // provedores de odds que deve encolhê-la.
+    const mode = await runtime.dataLayer.oddsEconomyMode();
     const limits = limitsForMode(mode);
 
     // Pré-jogo: partidas que começam em até 3 h, nas ligas mais prioritárias.

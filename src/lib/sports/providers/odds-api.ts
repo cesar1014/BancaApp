@@ -199,25 +199,73 @@ export class OddsApiProvider implements SportsProvider {
     const live = request.fixture.status === 'LIVE' || request.fixture.status === 'HALFTIME';
     const kind = live ? 'odds-live' : 'odds-prematch';
     const mode = await this.deps.quota.economyMode(this.key);
-
-    // Partidas prioritárias ganham o endpoint por evento (mais mercados); as
-    // demais usam o lote, mais barato e compartilhado pelo cache.
-    const markets = request.priority === 'HIGH' ? this.options.eventMarkets : this.options.bulkMarkets;
     const regions = this.options.regions;
-    const cost = markets.length * regions.split(',').length;
-    const cacheKey = `odds-api:odds:${sportKey}:${eventId}:${markets.join(',')}`;
 
-    const result = await this.deps.cache.getOrLoad(cacheKey, ttlFor(kind, mode), async () => {
-      const path =
-        request.priority === 'HIGH'
-          ? `/sports/${sportKey}/events/${eventId}/odds?regions=${regions}&markets=${markets.join(',')}&oddsFormat=decimal&dateFormat=iso`
-          : `/sports/${sportKey}/odds?regions=${regions}&markets=${markets.join(',')}&oddsFormat=decimal&dateFormat=iso&eventIds=${eventId}`;
-      const raw = await this.request<unknown>(path, cost, request.priority);
-      const now = this.deps.now().toISOString();
-      const list = Array.isArray(raw) ? raw : [raw];
-      return list.flatMap((item) => mapOddsApiEvent(item, now));
-    });
-    return result.value;
+    /**
+     * Partida prioritária ganha o endpoint por evento, que traz mais mercados
+     * e custa (mercados × regiões) por jogo. Vale para poucas partidas.
+     */
+    if (request.priority === 'HIGH') {
+      const markets = this.options.eventMarkets;
+      const cost = markets.length * regions.split(',').length;
+      const result = await this.deps.cache.getOrLoad(
+        `odds-api:evento:${sportKey}:${eventId}:${markets.join(',')}`,
+        ttlFor(kind, mode),
+        async () => {
+          const raw = await this.request<unknown>(
+            `/sports/${sportKey}/events/${eventId}/odds?regions=${regions}&markets=${markets.join(',')}&oddsFormat=decimal&dateFormat=iso`,
+            cost,
+            'HIGH',
+          );
+          return mapOddsApiEvent(raw, this.deps.now().toISOString());
+        },
+      );
+      return result.value;
+    }
+
+    /**
+     * O CAMINHO NORMAL É POR CAMPEONATO, NÃO POR JOGO.
+     *
+     * O endpoint em lote devolve TODAS as partidas de um campeonato numa
+     * resposta e cobra (mercados × regiões) uma vez — 2 créditos, cubra ele
+     * dois jogos ou vinte.
+     *
+     * A versão anterior usava esse mesmo endpoint com `&eventIds=<um jogo>`:
+     * pagava o preço do lote e levava um jogo só. Com oito partidas por ciclo
+     * e um ciclo a cada trinta minutos, isso consome centenas de créditos por
+     * dia — os 500 do mês inteiro evaporaram em pouco mais de um dia, e a The
+     * Odds API entrou em modo crítico.
+     *
+     * Buscando o campeonato inteiro, o cache serve todas as partidas dele pelo
+     * preço de uma chamada.
+     */
+    const markets = this.options.bulkMarkets;
+    const cost = markets.length * regions.split(',').length;
+
+    const result = await this.deps.cache.getOrLoad(
+      // `kind` entra na chave porque cotação ao vivo vence bem mais rápido que
+      // a de pré-jogo. Sem isso, a primeira partida a carregar definiria a
+      // validade para todas as outras do mesmo campeonato.
+      `odds-api:liga:${kind}:${sportKey}:${markets.join(',')}`,
+      ttlFor(kind, mode),
+      async () => {
+        const raw = await this.request<unknown>(
+          `/sports/${sportKey}/odds?regions=${regions}&markets=${markets.join(',')}&oddsFormat=decimal&dateFormat=iso`,
+          cost,
+          request.priority,
+        );
+        const now = this.deps.now().toISOString();
+        const porEvento: Record<string, OddsQuote[]> = {};
+        for (const item of Array.isArray(raw) ? raw : [raw]) {
+          const id = asString(asRecord(item)?.id);
+          if (!id) continue;
+          porEvento[id] = mapOddsApiEvent(item, now);
+        }
+        return porEvento;
+      },
+    );
+
+    return result.value[eventId] ?? [];
   }
 
   // O restante do contrato não se aplica: este provedor só entrega odds.
